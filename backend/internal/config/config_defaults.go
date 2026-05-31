@@ -217,9 +217,9 @@ func DefaultConfig() *Config {
 			Name: "Ant Browser",
 			Window: WindowConfig{
 				Width:     1280,
-				Height:    900,
+				Height:    720,
 				MinWidth:  960,
-				MinHeight: 640,
+				MinHeight: 560,
 			},
 			MaxProfileLimit: DefaultMaxProfileLimit,
 			UsedCDKeys:      []string{},

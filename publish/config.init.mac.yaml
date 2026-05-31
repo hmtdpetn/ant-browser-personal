@@ -6,9 +6,9 @@ app:
   name: Ant Browser
   window:
     width: 1280
-    height: 900
+    height: 720
     min_width: 960
-    min_height: 640
+    min_height: 560
   max_profile_limit: 9999
   used_cd_keys: []
 runtime:
