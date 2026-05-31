@@ -9,7 +9,7 @@ app:
         height: 1000
         min_width: 1200
         min_height: 700
-    max_profile_limit: 20
+    max_profile_limit: 9999
     used_cd_keys: []
 runtime:
     max_memory_mb: 0
