@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "description": "Pinned upstream runtime archives for reproducible runtime refresh.",
+  "sources": [
+    {
+      "id": "xray-linux-amd64",
+      "target": "linux-amd64",
+      "runtime": "xray",
+      "version": "26.2.6",
+      "archiveType": "zip",
+      "url": "https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-linux-64.zip",
+      "archiveSha256": "29ce535b56e207a406ffa1c2d4842dcc410be003eff8ec508bb732abc9f8e385",
+      "archiveBinaryPath": "xray",
+      "destPath": "bin/linux-amd64/xray"
+    },
+    {
+      "id": "xray-linux-arm64",
+      "target": "linux-arm64",
+      "runtime": "xray",
+      "version": "26.2.6",
+      "archiveType": "zip",
+      "url": "https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-linux-arm64-v8a.zip",
+      "archiveSha256": "b52d8263453fbd6f4747fd6a1ecf70cd43a664243615dc892ea4674c01b2b5ee",
+      "archiveBinaryPath": "xray",
+      "destPath": "bin/linux-arm64/xray"
+    },
+    {
+      "id": "sing-box-linux-amd64",
+      "target": "linux-amd64",
+      "runtime": "sing-box",
+      "version": "1.12.17",
+      "archiveType": "tar.gz",
+      "url": "https://github.com/SagerNet/sing-box/releases/download/v1.12.17/sing-box-1.12.17-linux-amd64.tar.gz",
+      "archiveSha256": "5c6cc2e753afb34a6f38802697c8040bdf6a7f3694ea67db861c1e093754f898",
+      "archiveBinaryPath": "sing-box-1.12.17-linux-amd64/sing-box",
+      "destPath": "bin/linux-amd64/sing-box"
+    },
+    {
+      "id": "sing-box-linux-arm64",
+      "target": "linux-arm64",
+      "runtime": "sing-box",
+      "version": "1.12.17",
+      "archiveType": "tar.gz",
+      "url": "https://github.com/SagerNet/sing-box/releases/download/v1.12.17/sing-box-1.12.17-linux-arm64.tar.gz",
+      "archiveSha256": "10fc1a95b34ec6cdd897f298ee6e7af34e2c2eab5648fc7e76d3a7ea4e2eaf41",
+      "archiveBinaryPath": "sing-box-1.12.17-linux-arm64/sing-box",
+      "destPath": "bin/linux-arm64/sing-box"
+    },
+    {
+      "id": "xray-darwin-amd64",
+      "target": "darwin-amd64",
+      "runtime": "xray",
+      "version": "26.2.6",
+      "archiveType": "zip",
+      "url": "https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-macos-64.zip",
+      "archiveSha256": "2baa1914c3ff93f66801e93556c9562099f469f812c9cff3dc7aff8aedda9f1b",
+      "archiveBinaryPath": "xray",
+      "destPath": "bin/darwin-amd64/xray"
+    },
+    {
+      "id": "xray-darwin-arm64",
+      "target": "darwin-arm64",
+      "runtime": "xray",
+      "version": "26.2.6",
+      "archiveType": "zip",
+      "url": "https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-macos-arm64-v8a.zip",
+      "archiveSha256": "adec4685084a7481c8acad93bb2024abe6db46535aec3a7bd6903d462961861d",
+      "archiveBinaryPath": "xray",
+      "destPath": "bin/darwin-arm64/xray"
+    },
+    {
+      "id": "sing-box-darwin-amd64",
+      "target": "darwin-amd64",
+      "runtime": "sing-box",
+      "version": "1.12.17",
+      "archiveType": "tar.gz",
+      "url": "https://github.com/SagerNet/sing-box/releases/download/v1.12.17/sing-box-1.12.17-darwin-amd64.tar.gz",
+      "archiveSha256": "7c95244d9e2af61d2c3182ad7ad7d50859dcc9aaf702f570262b3f2a1ccaacd7",
+      "archiveBinaryPath": "sing-box-1.12.17-darwin-amd64/sing-box",
+      "destPath": "bin/darwin-amd64/sing-box"
+    },
+    {
+      "id": "sing-box-darwin-arm64",
+      "target": "darwin-arm64",
+      "runtime": "sing-box",
+      "version": "1.12.17",
+      "archiveType": "tar.gz",
+      "url": "https://github.com/SagerNet/sing-box/releases/download/v1.12.17/sing-box-1.12.17-darwin-arm64.tar.gz",
+      "archiveSha256": "6dd10bb5bb100c3e9db17b0b88abd2eff00b9c1daea29fffda9142b67f169d9d",
+      "archiveBinaryPath": "sing-box-1.12.17-darwin-arm64/sing-box",
+      "destPath": "bin/darwin-arm64/sing-box"
+    }
+  ]
+}

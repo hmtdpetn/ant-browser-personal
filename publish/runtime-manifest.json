@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "description": "Pinned runtime binaries used for release packaging.",
+  "files": [
+    {
+      "path": "bin/xray.exe",
+      "sha256": "103da2750f4348a266ae61632c322f95cf3e18dce99eb588e685379f041e97c5",
+      "targets": [
+        "windows-amd64"
+      ],
+      "note": "legacy windows path"
+    },
+    {
+      "path": "bin/sing-box.exe",
+      "sha256": "94166c7c4142e4eb8df6ced07208ef286dd700155b9c70024c14f7c57b09149f",
+      "targets": [
+        "windows-amd64"
+      ],
+      "note": "legacy windows path"
+    },
+    {
+      "path": "bin/linux-amd64/xray",
+      "sha256": "3f650abf1fc4a4fbf5abe7fc9990a2658020907cd984214e9c075b4b00989fea",
+      "targets": [
+        "linux-amd64"
+      ]
+    },
+    {
+      "path": "bin/linux-amd64/sing-box",
+      "sha256": "7f768c4b158264bfc7275e2e540acef0de0c5e28f35762513ec6ee4b8cbf80db",
+      "targets": [
+        "linux-amd64"
+      ]
+    },
+    {
+      "path": "bin/linux-arm64/xray",
+      "sha256": "0f4b7cbaab8964beebffa0c226185326a35af560ecfed9da0b2ad9bc2ff9ded3",
+      "targets": [
+        "linux-arm64"
+      ]
+    },
+    {
+      "path": "bin/linux-arm64/sing-box",
+      "sha256": "22342821fd1b225fcf57fcf7d5ff0629efd466d37fa7c0f7279603f943f105a9",
+      "targets": [
+        "linux-arm64"
+      ]
+    },
+    {
+      "path": "bin/darwin-amd64/xray",
+      "sha256": "c9f5f35e8ad3649a03c75291278eab2c470573bd0e0d34da506bab3a09673172",
+      "targets": [
+        "darwin-amd64"
+      ]
+    },
+    {
+      "path": "bin/darwin-amd64/sing-box",
+      "sha256": "ccce3d919957add158c5a531b6e2556f4a8a071ce6391017859a51e8411437c1",
+      "targets": [
+        "darwin-amd64"
+      ]
+    },
+    {
+      "path": "bin/darwin-arm64/xray",
+      "sha256": "76fea3ec3610c2cc462ef39422ddc00e6d306b0c90223c983eaced6b12c8dee8",
+      "targets": [
+        "darwin-arm64"
+      ]
+    },
+    {
+      "path": "bin/darwin-arm64/sing-box",
+      "sha256": "0b3e7947b53c798adadd282e45748117a7820b21bfb10a7e1a43b46f02fac97a",
+      "targets": [
+        "darwin-arm64"
+      ]
+    }
+  ]
+}

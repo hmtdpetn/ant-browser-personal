@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ant Chrome OpenClaw Plan"
+  short_description: "Plan and maintain ant-chrome OpenClaw integration"
+  default_prompt: "Use $ant-chrome-openclaw-automation-plan to review or update the ant-chrome and OpenClaw integration plan."

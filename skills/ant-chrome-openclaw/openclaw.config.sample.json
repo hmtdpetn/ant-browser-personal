@@ -1,0 +1,23 @@
+{
+  "browser": {
+    "enabled": true,
+    "defaultProfile": "ant-chrome",
+    "profiles": {
+      "ant-chrome": {
+        "cdpUrl": "http://127.0.0.1:19876",
+        "color": "#0F766E"
+      }
+    }
+  },
+  "skills": {
+    "entries": {
+      "ant-chrome-openclaw": {
+        "enabled": true,
+        "env": {
+          "ANT_CHROME_BASE_URL": "http://127.0.0.1:19876",
+          "ANT_CHROME_API_HEADER": "X-Ant-Api-Key"
+        }
+      }
+    }
+  }
+}

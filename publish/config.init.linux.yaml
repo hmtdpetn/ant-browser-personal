@@ -1,0 +1,62 @@
+database:
+  type: sqlite
+  sqlite:
+    path: data/app.db
+app:
+  name: Ant Browser
+  window:
+    width: 1750
+    height: 1000
+    min_width: 1200
+    min_height: 700
+  max_profile_limit: 9999
+  used_cd_keys: []
+runtime:
+  max_memory_mb: 1024
+  gc_percent: 100
+logging:
+  level: info
+  file_enabled: false
+  file_path: data/logs/app.log
+  format: text
+  buffer_size: 4
+  async_queue_size: 1000
+  flush_interval_ms: 1000
+  rotation:
+    enabled: false
+    max_size_mb: 100
+    max_age: 7
+    max_backups: 5
+    time_interval: daily
+  interceptor:
+    enabled: true
+    log_parameters: true
+    log_results: true
+    sensitive_fields:
+      - password
+      - token
+      - secret
+browser:
+  user_data_root: data
+  default_fingerprint_args:
+    - --fingerprint-brand=Chrome
+    - --fingerprint-platform=linux
+  default_launch_args:
+    - --disable-sync
+    - --no-first-run
+  default_bookmarks: []
+  cores: []
+  proxies: []
+  profiles: []
+launch_server:
+  port: 19876
+automation:
+  enabled: false
+  install_policy: on_demand
+  runtime_version: node-22.15.1-playwright-core-1.59.0
+  headless_default: false
+  keep_runtime_on_disable: true
+  node_source: auto
+  system_node_path: ""
+  node_version: 22.15.1
+  playwright_core_version: 1.59.0
