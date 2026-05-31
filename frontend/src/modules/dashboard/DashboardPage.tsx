@@ -129,6 +129,7 @@ export function DashboardPage() {
               { label: '数据存储', value: 'SQLite + YAML' },
               { label: '内存占用', value: loading ? '-' : `${stats.memUsedMB} MB` },
               { label: '实例运行', value: loading ? '-' : `${stats.runningInstances} / ${stats.totalInstances}` },
+              { label: '实例上限', value: loading ? '-' : stats.maxProfileLimit.toString() },
             ].map(item => (
               <div
                 key={item.label}
