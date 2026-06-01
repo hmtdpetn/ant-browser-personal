@@ -163,6 +163,15 @@ function New-PortableStaging {
         Write-Host "  OK bin\$required"
     }
 
+    # verify scripts -- run inside the test environment after starting a node
+    $verifyBatSrc = Join-Path $repoRoot "publish\portable-verify.bat"
+    $verifyPsSrc  = Join-Path $repoRoot "publish\portable-verify.ps1"
+    if ((Test-Path -LiteralPath $verifyBatSrc) -and (Test-Path -LiteralPath $verifyPsSrc)) {
+        Copy-Item -LiteralPath $verifyBatSrc -Destination (Join-Path $stagingDir "verify-proxy.bat") -Force
+        Copy-Item -LiteralPath $verifyPsSrc -Destination (Join-Path $stagingDir "verify-proxy.ps1") -Force
+        Write-Host "  OK verify-proxy.bat / verify-proxy.ps1"
+    }
+
     # data/  -- empty placeholder; app initializes on first run
     # Compress-Archive cannot include a truly empty directory, so a .gitkeep marker is used.
     New-Item -ItemType Directory -Path $stagingData -Force | Out-Null
