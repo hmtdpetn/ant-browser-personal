@@ -33,31 +33,72 @@ app:
 
 ---
 
-## 构建方式
+## 构建环境要求
+
+Go 1.21+、Node.js 18+、Wails v2、Windows 10/11 64 位。
+
+---
+
+## Windows 便携版（个人推荐发布方式）
+
+> **不要直接用 `wails build` 生成的单个 exe 当作完整运行包。**
+> `wails build` 只输出主程序 exe，不包含代理运行时（`xray.exe`、`sing-box.exe`），
+> 代理实例和 IP 健康检测会因找不到这两个文件而失败。
+
+### 生成便携 zip
 
 ```powershell
-# 进入仓库目录
-cd <仓库路径>
-
-# 构建（会自动编译前端和 Go）
-wails build
-
-# 构建产物路径
-build\bin\ant-chrome.exe
+bat\package-portable.bat
 ```
 
-**环境要求**：Go 1.21+、Node.js 18+、Wails v2、Windows 10/11 64 位。
+输出路径：
+
+```
+dist\ant-browser-personal-windows-amd64-portable-{version}.zip
+```
+
+### zip 内结构
+
+```
+ant-browser-personal\
+  ant-chrome.exe          主程序
+  config.yaml             初始配置模板
+  bin\
+    xray.exe              代理运行时（必需）
+    sing-box.exe          代理运行时（必需）
+  data\                   运行时数据目录（首次启动自动初始化）
+```
+
+### 使用方式
+
+1. 解压 zip 到任意目录
+2. 运行 `ant-browser-personal\ant-chrome.exe`
+3. `bin\xray.exe` 和 `bin\sing-box.exe` 是代理实例和 IP 健康检测所需文件，**不要删除**
+4. `data\` 是运行时数据目录，首次启动后自动生成数据库和实例数据，**不应提交到 git**
+
+### 跳过构建步骤（已有构建产物时）
+
+```powershell
+bat\package-portable.bat -SkipBuild
+```
+
+### GitHub Release
+
+- 不要把 `dist\*.zip` 提交进主分支
+- 正式发布时把 zip 上传为 GitHub Release 附件
+- 旧 Release 若有单独 exe 附件，建议删除或标记废弃，改用 portable zip
 
 ---
 
 ## 运行注意事项
 
-- 首次运行会自动生成 `config.yaml` 和 `data/app.db`，无需手动创建
+- 首次运行会自动生成 `data/app.db`，无需手动创建
 - **不要提交**以下内容到 Git：
   - 真实代理配置、订阅 URL、token、`api_key`
   - `node_modules/`、`frontend/dist/`、`build/bin/`
   - `data/`（数据库、实例数据、日志、缓存）
-- 运行时 `bin/` 目录下的 `xray.exe` / `sing-box.exe` 已随仓库提供，无需单独下载
+  - `dist/`（portable zip 输出目录）
+- `bin/xray.exe` 和 `bin/sing-box.exe` 已随仓库提交，无需单独下载
 
 ---
 

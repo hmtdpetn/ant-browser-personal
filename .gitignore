@@ -57,6 +57,9 @@ chrome/*
 publish/staging/
 publish/output/
 
+# Portable release output
+dist/
+
 # Internal docs / scratch files
 docs/
 DEPLOYMENT_GUIDE.md
