@@ -5,6 +5,7 @@ import type { BrowserCore, BrowserCoreInput, BrowserProfile, BrowserProxy, Brows
 import { BrowserCoreEditorModal, BrowserListHeader, BrowserListSettingsModal, type BrowserViewMode } from '../components/BrowserListLayout'
 import { BatchToolbar } from '../components/BrowserListWidgets'
 import { BrowserProfilesPanel } from '../components/BrowserProfilesPanel'
+import { GroupManagerModal } from '../components/GroupManagerModal'
 import { EMPTY_FILTERS } from '../components/InstanceFilterBar'
 import type { InstanceFilters } from '../components/InstanceFilterBar'
 import { EventsOn, BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
@@ -52,6 +53,7 @@ export function BrowserListPage() {
   const [loading, setLoading] = useState(true)
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
   const [groups, setGroups] = useState<BrowserGroupWithCount[]>([])
+  const [groupManagerOpen, setGroupManagerOpen] = useState(false)
 
   // 视图模式
   const [viewMode, setViewMode] = useState<BrowserViewMode>(() => {
@@ -226,6 +228,18 @@ export function BrowserListPage() {
 
   const loadGroups = async () => {
     setGroups(await fetchGroups())
+  }
+
+  // 分组增删改后刷新；若当前筛选的分组已被删除，则重置为“全部”，避免列表空白
+  const handleGroupsChanged = async () => {
+    const next = await fetchGroups()
+    setGroups(next)
+    setFilters(prev => {
+      if (prev.groupId && prev.groupId !== '__ungrouped__' && !next.some(g => g.groupId === prev.groupId)) {
+        return { ...prev, groupId: '' }
+      }
+      return prev
+    })
   }
 
   const loadSettings = async () => {
@@ -733,6 +747,7 @@ export function BrowserListPage() {
         onToggleHeaderCollapsed={() => setHeaderCollapsed((prev) => !prev)}
         onRefresh={() => { void loadProfiles() }}
         onOpenSettings={handleOpenSettings}
+        onOpenGroupManager={() => setGroupManagerOpen(true)}
         onOpenExpandModal={() => {
           setCdKey('')
           setExpandModalOpen(true)
@@ -775,6 +790,13 @@ export function BrowserListPage() {
         onOpenKeywords={openKwModal}
         onOpenCopy={openCopyModal}
         onDelete={(profileId) => { void handleDelete(profileId) }}
+      />
+
+      <GroupManagerModal
+        open={groupManagerOpen}
+        onClose={() => setGroupManagerOpen(false)}
+        groups={groups}
+        onChanged={() => { void handleGroupsChanged() }}
       />
 
       <BrowserListSettingsModal

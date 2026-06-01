@@ -1,5 +1,5 @@
 ﻿import { Link } from 'react-router-dom'
-import { Activity, CheckCircle, ChevronRight, ChevronUp, Edit2, FileText, Gift, LayoutGrid, List, Play, Plus, RefreshCw, Sliders, Square, Star, Trash2, XCircle } from 'lucide-react'
+import { Activity, CheckCircle, ChevronRight, ChevronUp, Edit2, FileText, Folders, Gift, LayoutGrid, List, Play, Plus, RefreshCw, Sliders, Square, Star, Trash2, XCircle } from 'lucide-react'
 
 import { Button, Card, FormItem, Input, Modal, StatCard, Switch, Table, Textarea } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
@@ -25,6 +25,7 @@ interface BrowserListHeaderProps {
   onToggleHeaderCollapsed: () => void
   onRefresh: () => void
   onOpenSettings: () => void
+  onOpenGroupManager: () => void
   onOpenExpandModal: () => void
   onViewModeChange: (next: BrowserViewMode) => void
 }
@@ -44,6 +45,7 @@ export function BrowserListHeader({
   onToggleHeaderCollapsed,
   onRefresh,
   onOpenSettings,
+  onOpenGroupManager,
   onOpenExpandModal,
   onViewModeChange,
 }: BrowserListHeaderProps) {
@@ -69,6 +71,9 @@ export function BrowserListHeader({
           </Button>
           <Button variant="secondary" size="sm" onClick={onOpenSettings}>
             <Sliders className="w-4 h-4" />基础配置
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onOpenGroupManager}>
+            <Folders className="w-4 h-4" />分组管理
           </Button>
           <Button
             variant="secondary"

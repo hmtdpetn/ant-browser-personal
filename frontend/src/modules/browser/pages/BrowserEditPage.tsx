@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FolderOpen, Layers } from 'lucide-react'
+import { FolderOpen, Layers, Plus } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
 import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup } from '../types'
-import { createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
+import { createBrowserProfile, createGroup, fetchAllTags, fetchBrowserCores, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
 import { FingerprintPanel } from '../components/FingerprintPanel'
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
@@ -67,6 +67,9 @@ export function BrowserEditPage() {
   const [cores, setCores] = useState<BrowserCore[]>([])
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
   const [groups, setGroups] = useState<BrowserGroup[]>([])
+  const [showNewGroup, setShowNewGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [creatingGroup, setCreatingGroup] = useState(false)
   const [launchArgsText, setLaunchArgsText] = useState('')
   const [allTags, setAllTags] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
@@ -129,6 +132,28 @@ export function BrowserEditPage() {
       }
       return { ...prev, [field]: value }
     })
+  }
+
+  // 快速新建分组：创建成功后刷新分组列表并自动选中
+  const handleQuickCreateGroup = async () => {
+    const name = newGroupName.trim()
+    if (!name) return
+    setCreatingGroup(true)
+    try {
+      const maxSort = groups.reduce((max, g) => Math.max(max, g.sortOrder), 0)
+      const created = await createGroup({ groupName: name, parentId: '', sortOrder: maxSort + 1 })
+      const list = await fetchGroups()
+      setGroups(list)
+      if (created?.groupId) {
+        handleChange('groupId', created.groupId)
+      }
+      setNewGroupName('')
+      setShowNewGroup(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '创建分组失败')
+    } finally {
+      setCreatingGroup(false)
+    }
   }
 
   const handleSave = async () => {
@@ -256,13 +281,47 @@ export function BrowserEditPage() {
             />
           </FormItem>
           <FormItem label="分组">
-            <GroupSelector
-              groups={groups}
-              value={formData.groupId || ''}
-              onChange={groupId => handleChange('groupId', groupId)}
-              placeholder="未分组"
-              className="w-full"
-            />
+            <div className="flex items-center gap-2">
+              <GroupSelector
+                groups={groups}
+                value={formData.groupId || ''}
+                onChange={groupId => handleChange('groupId', groupId)}
+                placeholder="未分组"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowNewGroup(prev => !prev)}
+                title="新建分组"
+              >
+                <Plus className="w-4 h-4" />新建分组
+              </Button>
+            </div>
+            {showNewGroup && (
+              <div className="flex items-center gap-2 mt-2">
+                <Input
+                  value={newGroupName}
+                  onChange={e => setNewGroupName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleQuickCreateGroup() } }}
+                  placeholder="新分组名称"
+                  className="flex-1"
+                  autoFocus
+                />
+                <Button type="button" size="sm" onClick={handleQuickCreateGroup} loading={creatingGroup}>
+                  创建
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => { setShowNewGroup(false); setNewGroupName('') }}
+                >
+                  取消
+                </Button>
+              </div>
+            )}
           </FormItem>
         </div>
       </Card>
