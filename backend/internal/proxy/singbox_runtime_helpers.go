@@ -79,10 +79,24 @@ func (m *SingBoxManager) resolveBinary() (string, error) {
 	return "", fmt.Errorf("未找到 sing-box 可执行文件。请将 sing-box 放到 bin/%s/ 或 bin/ 目录，或在配置中设置 SingBoxBinaryPath", platformDir)
 }
 
-func (m *SingBoxManager) buildConfig(key string, outbound map[string]interface{}, port int) (string, error) {
+func (m *SingBoxManager) buildConfig(key string, outbound map[string]interface{}, port int, dnsServers string) (string, error) {
 	baseDir := m.resolveWorkdir(key)
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return "", err
+	}
+
+	directOut := map[string]interface{}{
+		"type": "direct",
+		"tag":  "direct",
+	}
+
+	preferIPv4 := m.Config.PreferIPv4Enabled()
+	if preferIPv4 {
+		// 主方案：把节点 server 域名预解析为 IPv4 字面量；SNI 由 rewrite 内部保留。
+		rewriteSingBoxOutboundToIPv4(outbound)
+		// 加固：给每个 outbound 加 domain_strategy=ipv4_only（sing-box 1.12 合法值）。
+		outbound["domain_strategy"] = "ipv4_only"
+		directOut["domain_strategy"] = "ipv4_only"
 	}
 
 	cfg := map[string]interface{}{
@@ -101,10 +115,7 @@ func (m *SingBoxManager) buildConfig(key string, outbound map[string]interface{}
 		},
 		"outbounds": []interface{}{
 			outbound,
-			map[string]interface{}{
-				"type": "direct",
-				"tag":  "direct",
-			},
+			directOut,
 		},
 		"route": map[string]interface{}{
 			"rules": []interface{}{
@@ -114,6 +125,22 @@ func (m *SingBoxManager) buildConfig(key string, outbound map[string]interface{}
 				},
 			},
 		},
+	}
+
+	if preferIPv4 {
+		// 加固：顶层 dns 块 strategy=ipv4_only，让 sing-box 内部解析只用 A 记录。
+		addrs := dnsServerAddrs(dnsServers)
+		if len(addrs) == 0 {
+			addrs = []string{"1.1.1.1", "8.8.8.8"}
+		}
+		servers := make([]interface{}, 0, len(addrs))
+		for _, a := range addrs {
+			servers = append(servers, map[string]interface{}{"address": a})
+		}
+		cfg["dns"] = map[string]interface{}{
+			"strategy": "ipv4_only",
+			"servers":  servers,
+		}
 	}
 
 	data, err := json.MarshalIndent(cfg, "", "  ")

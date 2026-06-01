@@ -29,6 +29,14 @@ func (m *XrayManager) buildRuntimeConfigWithRoute(key string, outbounds []interf
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
 		return "", err
 	}
+
+	preferIPv4 := m.Config.PreferIPv4Enabled()
+	if preferIPv4 {
+		// 主方案：把出站节点 server 域名预解析为 IPv4 字面量再写入配置，
+		// 任何内核都不会再去查 AAAA。SNI/serverName 由 rewrite 内部保留。
+		rewriteXrayOutboundsToIPv4(outbounds)
+	}
+
 	cfgPath := filepath.Join(baseDir, "xray-config.json")
 	cfg := map[string]interface{}{
 		"log": map[string]interface{}{
@@ -63,7 +71,16 @@ func (m *XrayManager) buildRuntimeConfigWithRoute(key string, outbounds []interf
 			"rules": rules,
 		},
 	}
-	if dnsCfg := parseDnsConfig(dnsServers); dnsCfg != nil {
+	dnsCfg := parseDnsConfig(dnsServers)
+	if preferIPv4 {
+		// 加固：顶层 queryStrategy=UseIPv4 让 xray 内部 DNS 只查 A 记录。
+		// 与用户自定义 dns servers 合并，不覆盖用户配置。
+		if dnsCfg == nil {
+			dnsCfg = map[string]interface{}{}
+		}
+		dnsCfg["queryStrategy"] = "UseIPv4"
+	}
+	if dnsCfg != nil {
 		cfg["dns"] = dnsCfg
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")

@@ -120,6 +120,19 @@ type AppConfig struct {
 	Window          WindowConfig `yaml:"window"`
 	MaxProfileLimit int          `yaml:"max_profile_limit"`
 	UsedCDKeys      []string     `yaml:"used_cd_keys"`
+	// PreferIPv4 控制是否在生成代理内核配置时强制只用 IPv4 解析节点 server 域名，
+	// 避免在下发原生 IPv6 但节点 IPv6 端点不可达的网络环境下出站全部超时。
+	// 指针类型用于区分「未配置」（默认开启）与「显式关闭」(prefer_ipv4: false)。
+	PreferIPv4 *bool `yaml:"prefer_ipv4,omitempty"`
+}
+
+// PreferIPv4Enabled 返回是否启用 IPv4-only 解析策略。
+// 未配置（nil）时默认开启；显式设为 false 时恢复原行为。
+func (c *Config) PreferIPv4Enabled() bool {
+	if c == nil || c.App.PreferIPv4 == nil {
+		return true
+	}
+	return *c.App.PreferIPv4
 }
 
 type WindowConfig struct {

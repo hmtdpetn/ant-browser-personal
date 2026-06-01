@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,16 @@ func (m *SingBoxManager) EnsureBridge(proxyConfig string, proxies []config.Brows
 		return "", fmt.Errorf("未找到代理节点")
 	}
 
+	dnsServers := ""
+	if proxyId != "" {
+		for _, item := range proxies {
+			if strings.EqualFold(item.ProxyId, proxyId) {
+				dnsServers = item.DnsServers
+				break
+			}
+		}
+	}
+
 	src = normalizeNodeScheme(src)
 	outbound, err := BuildSingBoxOutbound(src)
 	if err != nil {
@@ -25,7 +36,7 @@ func (m *SingBoxManager) EnsureBridge(proxyConfig string, proxies []config.Brows
 		return "", err
 	}
 
-	key := computeNodeKey(src)
+	key := computeNodeKey(src + "\x00" + dnsServers)
 
 	if socksURL, reused := m.tryReuseBridge(key); reused {
 		log.Info("复用 sing-box 桥接", logger.F("key", key[:8]), logger.F("socks_url", socksURL))
@@ -48,7 +59,7 @@ func (m *SingBoxManager) EnsureBridge(proxyConfig string, proxies []config.Brows
 			continue
 		}
 
-		cfgPath, err := m.buildConfig(key, outbound, port)
+		cfgPath, err := m.buildConfig(key, outbound, port, dnsServers)
 		if err != nil {
 			return "", fmt.Errorf("sing-box 配置生成失败: %w", err)
 		}

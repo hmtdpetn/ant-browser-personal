@@ -11,6 +11,9 @@ app:
         min_height: 560
     max_profile_limit: 9999
     used_cd_keys: []
+    # 强制代理内核只用 IPv4 解析节点 server 域名，规避原生 IPv6 网络下不可达
+    # 的 AAAA 端点导致出站超时。设为 false 可恢复原行为。
+    prefer_ipv4: true
 runtime:
     max_memory_mb: 0
     gc_percent: 100

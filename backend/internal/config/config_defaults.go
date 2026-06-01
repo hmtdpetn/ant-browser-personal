@@ -42,6 +42,9 @@ func normalizeConfig(config *Config) {
 	if config.App.UsedCDKeys == nil {
 		config.App.UsedCDKeys = []string{}
 	}
+	if config.App.PreferIPv4 == nil {
+		config.App.PreferIPv4 = boolPtr(true)
+	}
 
 	expectedLimit := MinimumProfileLimitForUsedKeys(config.App.UsedCDKeys)
 	if config.App.MaxProfileLimit < expectedLimit {
@@ -181,6 +184,10 @@ func normalizeConfig(config *Config) {
 	}
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func cloneInterceptorConfig(src InterceptorConfig) InterceptorConfig {
 	dst := src
 	dst.SensitiveFields = append([]string{}, src.SensitiveFields...)
@@ -223,6 +230,7 @@ func DefaultConfig() *Config {
 			},
 			MaxProfileLimit: DefaultMaxProfileLimit,
 			UsedCDKeys:      []string{},
+			PreferIPv4:      boolPtr(true),
 		},
 		Runtime: RuntimeConfig{
 			MaxMemoryMB: 0,
