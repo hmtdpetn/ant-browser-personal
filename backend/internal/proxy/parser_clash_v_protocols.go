@@ -52,7 +52,7 @@ func buildOutboundFromClashVless(node map[string]interface{}) (map[string]interf
 			if pbk := getMapString(rm, "public-key"); pbk != "" {
 				realityOpts["publicKey"] = pbk
 			}
-			if sid := getMapString(rm, "short-id"); sid != "" {
+			if sid := getMapString(rm, "short-id"); sid != "" && sid != "<nil>" && sid != "nil" && sid != "null" {
 				realityOpts["shortId"] = sid
 			}
 		}
