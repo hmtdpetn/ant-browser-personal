@@ -25,6 +25,7 @@ type browserStartPlan struct {
 	profile               *BrowserProfile
 	chromeBinaryPath      string
 	userDataDir           string
+	badgeIconPath         string
 	args                  []string
 	effectiveProxy        string
 	acquiredXrayBridgeKey string
@@ -123,6 +124,16 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		return nil, err
 	}
 
+	badgeLabel := a.browserMgr.ProfileBadgeLabel(profile)
+	badgeIconPath, err := browser.EnsureProfileBadgeIcon(userDataDir, profile.ProfileName, badgeLabel)
+	if err != nil {
+		logger.New("Browser").Warn("profile badge icon prepare failed",
+			logger.F("profile_id", input.ProfileID),
+			logger.F("badge", badgeLabel),
+			logger.F("error", err.Error()),
+		)
+	}
+
 	startReadyTimeout, startStableWindow := a.browserStartTimingSettings()
 	maxStartAttempts := browserStartAttemptCount()
 	totalReadyTimeout := time.Duration(maxStartAttempts) * startReadyTimeout
@@ -143,6 +154,7 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		profile:               profile,
 		chromeBinaryPath:      chromeBinaryPath,
 		userDataDir:           userDataDir,
+		badgeIconPath:         badgeIconPath,
 		args:                  buildBrowserLaunchArgs(profile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, a.browserDefaultStartURLs(), input.SkipDefaultStartURLs, browserRestoreLastSession(a.config)),
 		effectiveProxy:        effectiveProxy,
 		acquiredXrayBridgeKey: acquiredXrayBridgeKey,

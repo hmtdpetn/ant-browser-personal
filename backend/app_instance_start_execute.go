@@ -60,6 +60,7 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 				logger.F("args", strings.Join(plan.args, " ")),
 			)
 			a.emitBrowserInstanceStarted(profile, false)
+			a.applyBrowserProfileWindowBadgeAsync(input.ProfileID, plan.userDataDir, plan.badgeIconPath)
 
 			go a.waitBrowserProcess(input.ProfileID, monitor)
 			return profile, nil
@@ -110,6 +111,7 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 			logger.F("warning", runtimeWarning),
 		)
 		a.emitBrowserInstanceStarted(profile, false)
+		a.applyBrowserProfileWindowBadgeAsync(input.ProfileID, plan.userDataDir, plan.badgeIconPath)
 		go a.waitBrowserProcess(input.ProfileID, monitor)
 		go a.waitBrowserDebugReadyAsync(input.ProfileID, plan.assignedDebugPort, browserAsyncDebugAttachTimeout)
 	}
