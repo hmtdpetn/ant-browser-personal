@@ -44,7 +44,8 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
     onChange({ ...filters, [key]: value })
 
   const hasFilter = !isFiltersEmpty(filters)
-  const activeCount = [filters.keyword, filters.status, filters.proxyId, filters.coreId, filters.kwSearch, filters.groupId].filter(Boolean).length + filters.tags.size
+  const searchValue = filters.keyword || filters.kwSearch
+  const activeCount = [searchValue, filters.status, filters.proxyId, filters.coreId, filters.groupId].filter(Boolean).length + filters.tags.size
 
   return (
     <div className="space-y-2">
@@ -66,10 +67,10 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
         <>
           <div className="flex items-center gap-2 flex-wrap">
             <Input
-              value={filters.keyword}
-              onChange={e => set('keyword', e.target.value)}
-              placeholder="搜索名称..."
-              style={{ width: '180px' }}
+              value={searchValue}
+              onChange={e => onChange({ ...filters, keyword: e.target.value, kwSearch: '' })}
+              placeholder="搜索名称/快捷码/关键字..."
+              className="flex-1 min-w-[220px]"
             />
             <Select
               value={filters.status}
@@ -109,12 +110,6 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
                 ...groups.map(g => ({ value: g.groupId, label: g.groupName })),
               ]}
               style={{ width: '140px' }}
-            />
-            <Input
-              value={filters.kwSearch}
-              onChange={e => set('kwSearch', e.target.value)}
-              placeholder="搜索关键字值..."
-              className="flex-1 min-w-[160px]"
             />
             {hasFilter && (
               <button

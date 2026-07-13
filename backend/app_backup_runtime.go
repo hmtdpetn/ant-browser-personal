@@ -2,7 +2,7 @@ package backend
 
 import (
 	"ant-chrome/backend/internal/browser"
-	"ant-chrome/backend/internal/proxy"
+	"ant-chrome/backend/internal/config"
 	"os/exec"
 	"time"
 )
@@ -22,7 +22,7 @@ func (a *App) backupStopRuntimeForMaintenance() {
 	if a.xrayMgr != nil {
 		a.xrayMgr.StopAll()
 	}
-	a.clearProfileXrayBridges()
+	a.clearProfileProxyBridges()
 	if a.singboxMgr != nil {
 		a.singboxMgr.StopAll()
 	}
@@ -73,7 +73,8 @@ func (a *App) backupReloadAfterMutation() error {
 		a.speedScheduler = browser.NewProxySpeedScheduler(
 			a.browserMgr.ProxyDAO,
 			func(proxyID string) (bool, int64, string) {
-				r := proxy.SpeedTest(proxyID, a.config.Browser.Proxies, a.xrayMgr, a.singboxMgr, nil)
+				connectorType := config.NormalizeBrowserConnectorType(a.config.Browser.DefaultConnectorType)
+				r := a.testProxySpeedWithConnector(proxyID, a.getLatestProxies(), connectorType)
 				return r.Ok, r.LatencyMs, r.Error
 			},
 			5*time.Minute,

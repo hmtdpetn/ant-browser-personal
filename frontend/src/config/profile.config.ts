@@ -1,4 +1,4 @@
-import { projectConfig } from './project.config'
+import { projectConfig } from './projectBase.config'
 
 export type ProfileIconKey =
   | 'book-open'
@@ -58,6 +58,9 @@ export interface ProfilePageLocalConfig {
 
 export const profilePageConfig: ProfilePageLocalConfig = {
   remoteAuthor: {
+    // 留空时直接使用本地默认资料；需要远程作者页时再替换为真实地址。
+    // https://static.antblack.de/profile/author.json
+    // https://raw.githubusercontent.com/<user>/<repo>/main/author.json
     authorURL: '',
     timeoutMs: 1000,
   },

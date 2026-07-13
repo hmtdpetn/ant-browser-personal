@@ -63,49 +63,30 @@ func buildOutboundFromClashVless(node map[string]interface{}) (map[string]interf
 		if sni != "" {
 			tlsSettings["serverName"] = sni
 		}
-		tlsSettings["allowInsecure"] = getMapBool(node, "skip-cert-verify")
+		applyClashTLSClientOptions(node, tlsSettings)
 		stream["security"] = "tls"
 		stream["tlsSettings"] = tlsSettings
 	}
 	if network == "ws" {
 		stream["network"] = "ws"
-		ws := map[string]interface{}{}
-		if wsOpts, ok := node["ws-opts"]; ok {
-			if wsMap := toStringMap(wsOpts); wsMap != nil {
-				path := getMapString(wsMap, "path")
-				if path != "" {
-					ws["path"] = path
-				}
-				if headers, ok := wsMap["headers"]; ok {
-					if headerMap := toStringMap(headers); headerMap != nil {
-						if hostH := getMapString(headerMap, "Host"); hostH != "" {
-							ws["headers"] = map[string]interface{}{"Host": hostH}
-						}
-					}
-				}
-			}
-		}
-		stream["wsSettings"] = ws
+		stream["wsSettings"] = buildClashWSSettings(node)
 	}
 	if network == "grpc" {
 		stream["network"] = "grpc"
-		if grpcOpts, ok := node["grpc-opts"]; ok {
-			if grpcMap := toStringMap(grpcOpts); grpcMap != nil {
-				serviceName := getMapString(grpcMap, "grpc-service-name")
-				if serviceName != "" {
-					stream["grpcSettings"] = map[string]interface{}{"serviceName": serviceName}
-				}
-			}
+		if grpc := buildClashGRPCSettings(node); len(grpc) > 0 {
+			stream["grpcSettings"] = grpc
 		}
 	}
-	// 强制出站拨号优先解析 IPv4，避免节点域名解析到不可达的 AAAA(IPv6)
-	// 端点导致全部出站超时（宿主机关闭 TUN 时尤为明显）。
+	// Keep the personal VLESS Reality routing rule: prefer IPv4 when resolving
+	// the outbound endpoint so hosts with unreachable AAAA records do not make
+	// the complete proxy path time out.
 	stream["sockopt"] = map[string]interface{}{
 		"domainStrategy": "UseIPv4",
 	}
 	if len(stream) > 0 {
 		out["streamSettings"] = stream
 	}
+	applyXrayBrowserOutboundTuning(node, out)
 	return out, "", nil
 }
 
@@ -146,43 +127,23 @@ func buildOutboundFromClashVmess(node map[string]interface{}) (map[string]interf
 		if sni != "" {
 			tlsSettings["serverName"] = sni
 		}
-		tlsSettings["allowInsecure"] = getMapBool(node, "skip-cert-verify")
+		applyClashTLSClientOptions(node, tlsSettings)
 		stream["security"] = "tls"
 		stream["tlsSettings"] = tlsSettings
 	}
 	if network == "ws" {
 		stream["network"] = "ws"
-		ws := map[string]interface{}{}
-		if wsOpts, ok := node["ws-opts"]; ok {
-			if wsMap := toStringMap(wsOpts); wsMap != nil {
-				path := getMapString(wsMap, "path")
-				if path != "" {
-					ws["path"] = path
-				}
-				if headers, ok := wsMap["headers"]; ok {
-					if headerMap := toStringMap(headers); headerMap != nil {
-						if hostH := getMapString(headerMap, "Host"); hostH != "" {
-							ws["headers"] = map[string]interface{}{"Host": hostH}
-						}
-					}
-				}
-			}
-		}
-		stream["wsSettings"] = ws
+		stream["wsSettings"] = buildClashWSSettings(node)
 	}
 	if network == "grpc" {
 		stream["network"] = "grpc"
-		if grpcOpts, ok := node["grpc-opts"]; ok {
-			if grpcMap := toStringMap(grpcOpts); grpcMap != nil {
-				serviceName := getMapString(grpcMap, "grpc-service-name")
-				if serviceName != "" {
-					stream["grpcSettings"] = map[string]interface{}{"serviceName": serviceName}
-				}
-			}
+		if grpc := buildClashGRPCSettings(node); len(grpc) > 0 {
+			stream["grpcSettings"] = grpc
 		}
 	}
 	if len(stream) > 0 {
 		out["streamSettings"] = stream
 	}
+	applyXrayBrowserOutboundTuning(node, out)
 	return out, "", nil
 }

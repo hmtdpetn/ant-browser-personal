@@ -1,7 +1,7 @@
 ﻿import { Link } from 'react-router-dom'
-import { Activity, CheckCircle, ChevronRight, ChevronUp, Edit2, FileText, Folders, Gift, LayoutGrid, List, Play, Plus, RefreshCw, Sliders, Square, Star, Trash2, XCircle } from 'lucide-react'
+import { Archive, CheckCircle, ChevronRight, ChevronUp, Edit2, Folders, LayoutGrid, List, Play, Plus, RefreshCw, Sliders, Star, Trash2, Upload, XCircle } from 'lucide-react'
 
-import { Button, Card, FormItem, Input, Modal, StatCard, Switch, Table, Textarea } from '../../../shared/components'
+import { Button, Card, FormItem, Input, Modal, Switch, Table, Textarea } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
 
 import type { BrowserCore, BrowserCoreInput, BrowserGroupWithCount, BrowserProxy, BrowserSettings } from '../types'
@@ -26,7 +26,10 @@ interface BrowserListHeaderProps {
   onRefresh: () => void
   onOpenSettings: () => void
   onOpenGroupManager: () => void
-  onOpenExpandModal: () => void
+  onOpenTrash: () => void
+  onImportProfiles: () => void
+  onOpenBackup: () => void
+  importingProfiles?: boolean
   onViewModeChange: (next: BrowserViewMode) => void
 }
 
@@ -46,22 +49,42 @@ export function BrowserListHeader({
   onRefresh,
   onOpenSettings,
   onOpenGroupManager,
-  onOpenExpandModal,
+  onOpenTrash,
+  onImportProfiles,
+  onOpenBackup,
+  importingProfiles = false,
   onViewModeChange,
 }: BrowserListHeaderProps) {
+  const statItems = [
+    { label: '总数', value: profileCount },
+    { label: '运行', value: runningCount },
+    { label: '停止', value: Math.max(0, profileCount - runningCount) },
+  ]
+
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">实例列表</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            当前配置总数 {profileCount}
+          <div className="flex flex-wrap items-center gap-2">
+            {statItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex h-8 items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] px-3 text-sm"
+              >
+                <span className="text-[var(--color-text-muted)]">{item.label}</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">{item.value}</span>
+              </div>
+            ))}
             {filteredProfileCount !== profileCount && (
-              <span className="ml-1 text-[var(--color-accent)]">（已筛选 {filteredProfileCount}）</span>
+              <div className="flex h-8 items-center gap-2 rounded-lg border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 px-3 text-sm">
+                <span className="text-[var(--color-text-muted)]">筛选</span>
+                <span className="font-semibold text-[var(--color-accent)]">{filteredProfileCount}</span>
+              </div>
             )}
-          </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onToggleHeaderCollapsed}>
             {headerCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
             {headerCollapsed ? '展开面板' : '收起面板'}
@@ -75,13 +98,14 @@ export function BrowserListHeader({
           <Button variant="secondary" size="sm" onClick={onOpenGroupManager}>
             <Folders className="w-4 h-4" />分组管理
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onOpenExpandModal}
-            className="text-[var(--color-primary)] border-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
-          >
-            <Gift className="w-4 h-4" />扩容实例
+          <Button variant="secondary" size="sm" onClick={onOpenTrash}>
+            <Trash2 className="w-4 h-4" />回收站
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onImportProfiles} loading={importingProfiles}>
+            <Upload className="w-4 h-4" />导入实例
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onOpenBackup}>
+            <Archive className="w-4 h-4" />备份
           </Button>
           <div className="flex items-center bg-[var(--color-bg-secondary)] rounded-md border border-[var(--color-border-default)] p-0.5 ml-2">
             <button
@@ -107,24 +131,15 @@ export function BrowserListHeader({
           </Link>
         </div>
       </div>
-
       {!headerCollapsed && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard title="配置总数" value={`${profileCount}`} icon={<FileText className="w-5 h-5" />} />
-            <StatCard title="运行中实例" value={`${runningCount}`} icon={<Activity className="w-5 h-5" />} />
-            <StatCard title="停止实例" value={`${profileCount - runningCount}`} icon={<Square className="w-5 h-5 text-gray-400" />} />
-          </div>
-
-          <InstanceFilterBar
-            filters={filters}
-            onChange={onFiltersChange}
-            proxies={proxies}
-            cores={cores}
-            allTags={allTags}
-            groups={groups}
-          />
-        </>
+        <InstanceFilterBar
+          filters={filters}
+          onChange={onFiltersChange}
+          proxies={proxies}
+          cores={cores}
+          allTags={allTags}
+          groups={groups}
+        />
       )}
     </>
   )
@@ -257,6 +272,15 @@ export function BrowserListSettingsModal({
             rows={4}
             placeholder="启动 URL"
           />
+        </FormItem>
+        <FormItem label="轻启动模式" hint="先起空白页，实例就绪后再打开默认页面">
+          <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-default)] px-3 py-2">
+            <span className="text-sm text-[var(--color-text-primary)]">延后打开启动页</span>
+            <Switch
+              checked={settings.lightStartEnabled}
+              onChange={(checked) => onSettingsChange({ lightStartEnabled: checked })}
+            />
+          </div>
         </FormItem>
         <FormItem label="恢复上次关闭的标签页" hint="关闭后只打开默认启动页或空白页">
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-default)] px-3 py-2">

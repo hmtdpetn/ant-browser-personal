@@ -161,6 +161,39 @@ WHERE NOT EXISTS (
 )`,
 		},
 		{
+			name: "browser_extensions",
+			insertAll: `INSERT INTO browser_extensions (extension_id, name, version, description, manifest_json, source_url, install_dir, enabled, installed_at, updated_at)
+SELECT extension_id, name, version, description, manifest_json, source_url, install_dir, enabled, installed_at, updated_at FROM src.browser_extensions`,
+			insertSafe: `INSERT INTO browser_extensions (extension_id, name, version, description, manifest_json, source_url, install_dir, enabled, installed_at, updated_at)
+SELECT s.extension_id, s.name, s.version, s.description, s.manifest_json, s.source_url, s.install_dir, s.enabled, s.installed_at, s.updated_at
+FROM src.browser_extensions s
+WHERE NOT EXISTS (
+  SELECT 1 FROM browser_extensions t WHERE t.extension_id = s.extension_id
+)`,
+		},
+		{
+			name: "browser_profile_extension_settings",
+			insertAll: `INSERT INTO browser_profile_extension_settings (profile_id, configured, updated_at)
+SELECT profile_id, configured, updated_at FROM src.browser_profile_extension_settings`,
+			insertSafe: `INSERT INTO browser_profile_extension_settings (profile_id, configured, updated_at)
+SELECT s.profile_id, s.configured, s.updated_at
+FROM src.browser_profile_extension_settings s
+WHERE NOT EXISTS (
+  SELECT 1 FROM browser_profile_extension_settings t WHERE t.profile_id = s.profile_id
+)`,
+		},
+		{
+			name: "browser_profile_extensions",
+			insertAll: `INSERT INTO browser_profile_extensions (profile_id, extension_id, enabled, created_at, updated_at)
+SELECT profile_id, extension_id, enabled, created_at, updated_at FROM src.browser_profile_extensions`,
+			insertSafe: `INSERT INTO browser_profile_extensions (profile_id, extension_id, enabled, created_at, updated_at)
+SELECT s.profile_id, s.extension_id, s.enabled, s.created_at, s.updated_at
+FROM src.browser_profile_extensions s
+WHERE NOT EXISTS (
+  SELECT 1 FROM browser_profile_extensions t WHERE t.profile_id = s.profile_id AND t.extension_id = s.extension_id
+)`,
+		},
+		{
 			name: "launch_codes",
 			insertAll: `INSERT INTO launch_codes (profile_id, code, created_at, updated_at)
 SELECT profile_id, code, created_at, updated_at FROM src.launch_codes`,

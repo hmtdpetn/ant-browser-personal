@@ -1,10 +1,10 @@
 ﻿; Ant Browser NSIS Installer Script
-; Usage: makensis /DVERSION=1.2.0 /DSTAGINGDIR=C:\path\to\staging installer.nsi
+; Usage: makensis /DVERSION=1.3.0 /DSTAGINGDIR=C:\path\to\staging installer.nsi
 
 Unicode True
 
 !ifndef VERSION
-  !define VERSION "1.2.0"
+  !define VERSION "1.3.0"
 !endif
 !ifndef STAGINGDIR
   !define STAGINGDIR "..\publish\staging"
@@ -12,6 +12,7 @@ Unicode True
 
 !define PRODUCT_NAME    "Ant Browser"
 !define PRODUCT_EXE     "ant-chrome.exe"
+!define PRODUCT_ICON    "AntBrowser.ico"
 !define UNINSTALL_KEY   "Software\Microsoft\Windows\CurrentVersion\Uninstall\AntBrowser"
 !define INSTALL_DIR     "$PROGRAMFILES64\Ant Browser"
 !define POWERSHELL_EXE  "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe"
@@ -185,9 +186,6 @@ RequestExecutionLevel admin
 !define MUI_DIRECTORYPAGE_TEXT_DESTINATION "安装目录（建议非 C 盘）"
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE WarnInstallDir
 !insertmacro MUI_PAGE_DIRECTORY
-!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
-!undef MUI_DIRECTORYPAGE_TEXT_TOP
-!undef MUI_DIRECTORYPAGE_TEXT_DESTINATION
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
@@ -205,6 +203,7 @@ Section "Ant Browser (required)" SecMain
   Call CloseInstalledProcesses
   SetOutPath "$INSTDIR"
   File "${STAGINGDIR}\${PRODUCT_EXE}"
+  File /oname=${PRODUCT_ICON} "..\build\windows\icon.ico"
 !if /FileExists "${STAGINGDIR}\config.yaml"
   IfFileExists "$INSTDIR\config.yaml" +2 0
     File "${STAGINGDIR}\config.yaml"
@@ -222,13 +221,13 @@ Section "Ant Browser (required)" SecMain
   WriteRegStr HKLM "${UNINSTALL_KEY}" "Publisher"       "Ant Chrome Team"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "UninstallString" "$INSTDIR\Uninstall.exe"
-  WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayIcon"     "$INSTDIR\${PRODUCT_EXE}"
+  WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayIcon"     "$INSTDIR\${PRODUCT_ICON}"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "NoModify"        "1"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "NoRepair"        "1"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_EXE}"
-  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_EXE}" "" "$INSTDIR\${PRODUCT_ICON}"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe" "" "$INSTDIR\${PRODUCT_ICON}"
 SectionEnd
 
 Section "Proxy Runtime (xray / sing-box)" SecRuntime
@@ -239,7 +238,7 @@ Section "Proxy Runtime (xray / sing-box)" SecRuntime
 SectionEnd
 
 Section /o "Desktop Shortcut" SecDesktop
-  CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_EXE}"
+  CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_EXE}" "" "$INSTDIR\${PRODUCT_ICON}"
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
@@ -252,6 +251,7 @@ Section "Uninstall"
   Call un.CloseInstalledProcesses
 
   Delete /REBOOTOK "$INSTDIR\${PRODUCT_EXE}"
+  Delete /REBOOTOK "$INSTDIR\${PRODUCT_ICON}"
   Delete /REBOOTOK "$INSTDIR\config.yaml"
   Delete /REBOOTOK "$INSTDIR\proxies.yaml"
   Delete /REBOOTOK "$INSTDIR\Uninstall.exe"

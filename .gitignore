@@ -99,3 +99,32 @@ tmp-debug-port*/
 .env
 .env.*
 !.env.example
+
+# Local sensitive configs / accounts
+*.ovpn
+clash.yaml
+mihomo.yaml
+singbox.json
+xray.json
+proxy-subscription.yaml
+proxy-subscriptions.yaml
+subscription.yaml
+subscriptions.yaml
+account.json
+accounts.json
+accounts.yaml
+accounts.yml
+*credential*.json
+*credentials*.json
+*secret*.json
+*secrets*.json
+*token*.json
+*tokens*.json
+*cookie*.json
+*cookies*.json
+*.local.yaml
+*.local.yml
+*.local.json
+
+# Local backups
+.local-backup/

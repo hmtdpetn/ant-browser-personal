@@ -3,6 +3,7 @@ package backend
 import (
 	"ant-chrome/backend/internal/backup"
 	"ant-chrome/backend/internal/config"
+	"ant-chrome/backend/internal/snapshot"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,7 +16,7 @@ func backupExtractAndValidate(zipPath string) (string, backup.Manifest, error) {
 	if err != nil {
 		return "", backup.Manifest{}, err
 	}
-	if err := unzipTo(zipPath, tmpDir); err != nil {
+	if err := snapshot.UnzipTo(zipPath, tmpDir); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		return "", backup.Manifest{}, fmt.Errorf("解压备份包失败: %w", err)
 	}

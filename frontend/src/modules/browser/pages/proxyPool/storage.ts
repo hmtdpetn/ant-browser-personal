@@ -3,7 +3,8 @@ import type { ProxyIPHealthResult } from '../../types'
 import type { ClashProxy } from './helpers'
 import { normalizeRefreshIntervalM, resolveImportedProxyName } from './helpers'
 
-const PROXY_LATENCY_CACHE_KEY = 'browser:proxyPool:latencyMap:v1'
+const PROXY_LATENCY_CACHE_KEY = 'browser:proxyPool:latencyMap:v2'
+const PROXY_LATENCY_ENGINE_CACHE_KEY = 'browser:proxyPool:latencyEngineMap:v2'
 const PROXY_IP_HEALTH_CACHE_KEY = 'browser:proxyPool:ipHealthMap:v1'
 const PROXY_SOURCE_IGNORED_NAMES_KEY = 'browser:proxyPool:sourceIgnoredProxyNames:v1'
 const PROXY_GLOBAL_AUTO_REFRESH_KEY = 'browser:proxyPool:globalAutoRefreshEnabled:v1'
@@ -151,6 +152,41 @@ export function writeLatencyCache(data: Record<string, number>) {
       }
     })
     localStorage.setItem(PROXY_LATENCY_CACHE_KEY, JSON.stringify({
+      timestamp: Date.now(),
+      data: cleaned,
+    }))
+  } catch {
+    // ignore write failures
+  }
+}
+
+export function readLatencyEngineCache(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(PROXY_LATENCY_ENGINE_CACHE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as { timestamp?: number; data?: Record<string, string> }
+    if (!parsed?.timestamp || !parsed?.data) return {}
+    if (Date.now() - parsed.timestamp > PROXY_LATENCY_CACHE_TTL_MS) return {}
+
+    const cleaned: Record<string, string> = {}
+    Object.entries(parsed.data).forEach(([proxyId, engine]) => {
+      const value = typeof engine === 'string' ? engine.trim() : ''
+      if (value) cleaned[proxyId] = value
+    })
+    return cleaned
+  } catch {
+    return {}
+  }
+}
+
+export function writeLatencyEngineCache(data: Record<string, string>) {
+  try {
+    const cleaned: Record<string, string> = {}
+    Object.entries(data).forEach(([proxyId, engine]) => {
+      const value = typeof engine === 'string' ? engine.trim() : ''
+      if (value) cleaned[proxyId] = value
+    })
+    localStorage.setItem(PROXY_LATENCY_ENGINE_CACHE_KEY, JSON.stringify({
       timestamp: Date.now(),
       data: cleaned,
     }))

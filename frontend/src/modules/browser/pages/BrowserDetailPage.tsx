@@ -17,6 +17,7 @@ import {
 import { CookieManagerCard } from '../components/CookieManagerCard'
 import { SnapshotTab } from '../components/SnapshotTab'
 import { resolveActionErrorMessage, resolveActionFeedback } from '../utils/actionErrors'
+import { warmupProfileProxyBeforeStart } from '../utils/proxyWarmup'
 
 const resolveRuntimeStatus = (running: boolean, debugReady: boolean) => {
   if (!running) return { variant: 'warning' as const, label: '已停止' }
@@ -102,13 +103,33 @@ export function BrowserDetailPage() {
   }
 
   const handleOpenUrl = async () => {
-    await openBrowserUrl(profile.profileId, targetUrl)
-    toast.success('已发送打开指令')
+    const normalizedTargetUrl = targetUrl.trim()
+    if (!normalizedTargetUrl) {
+      toast.warning('请输入目标地址')
+      return
+    }
+
+    try {
+      const opened = await openBrowserUrl(profile.profileId, normalizedTargetUrl)
+      if (!opened) {
+        toast.warning('打开指令未执行')
+        return
+      }
+      toast.success('已在运行中实例打开地址')
+    } catch (error: any) {
+      const feedback = resolveActionFeedback(error, '打开地址失败')
+      if (feedback.tone === 'warning') {
+        toast.warning(feedback.message)
+      } else {
+        toast.error(feedback.message)
+      }
+    }
   }
 
   const handleStart = async () => {
     setPendingAction('starting')
     try {
+      await warmupProfileProxyBeforeStart(profile)
       const startedProfile = await startBrowserInstance(profile.profileId)
       if (startedProfile) {
         setProfile(startedProfile)
@@ -150,6 +171,7 @@ export function BrowserDetailPage() {
   const handleRestart = async () => {
     setPendingAction('restarting')
     try {
+      await warmupProfileProxyBeforeStart(profile)
       const restartedProfile = await restartBrowserInstance(profile.profileId)
       if (restartedProfile) {
         setProfile(restartedProfile)

@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"ant-chrome/backend/internal/config"
 	"ant-chrome/backend/internal/logger"
 	"ant-chrome/backend/internal/proxy"
 	"fmt"
@@ -9,7 +10,7 @@ import (
 
 const temporaryDirectProxyID = "__direct__"
 
-func (a *App) resolveBrowserStartProxy(input browserStartInput, profile *BrowserProfile) (string, string, bool, error) {
+func (a *App) resolveBrowserStartProxy(input browserStartInput, profile *BrowserProfile) (string, profileProxyBridgeRef, bool, error) {
 	log := logger.New("Browser")
 	proxies := a.getLatestProxies()
 	profileID := input.ProfileID
@@ -19,7 +20,7 @@ func (a *App) resolveBrowserStartProxy(input browserStartInput, profile *Browser
 			logger.F("profile_id", profileID),
 			logger.F("proxy_id", profile.ProxyId),
 		)
-		return "direct://", "", false, nil
+		return "direct://", profileProxyBridgeRef{}, false, nil
 	}
 
 	resolvedProxyID := strings.TrimSpace(profile.ProxyId)
@@ -37,7 +38,7 @@ func (a *App) resolveBrowserStartProxy(input browserStartInput, profile *Browser
 				logger.F("error", err.Error()),
 				logger.F("reason", startErr.Error()),
 			)
-			return "", "", false, startErr
+			return "", profileProxyBridgeRef{}, false, startErr
 		}
 	} else if resolvedProxyID != "" {
 		for _, item := range proxies {
@@ -67,40 +68,77 @@ func (a *App) resolveBrowserStartProxy(input browserStartInput, profile *Browser
 			logger.F("error", errorMsg),
 			logger.F("reason", startErr.Error()),
 		)
-		return "", "", false, startErr
+		return "", profileProxyBridgeRef{}, false, startErr
 	}
 
-	if proxy.IsSingBoxProtocol(resolvedProxyConfig) {
-		socksURL, bridgeErr := a.singboxMgr.EnsureBridge(resolvedProxyConfig, proxies, resolvedProxyID)
-		if bridgeErr != nil {
-			startErr := fmt.Errorf("实例启动失败：代理桥接启动失败（sing-box）。原因：%v。请检查代理节点配置、sing-box 可执行文件是否存在，以及本地端口是否被占用。", bridgeErr)
-			log.Error("代理桥接失败(sing-box)",
-				logger.F("error", bridgeErr.Error()),
-				logger.F("reason", startErr.Error()),
-			)
+	connectorType := config.BrowserConnectorXray
+	if a.config != nil {
+		connectorType = config.NormalizeBrowserConnectorType(a.config.Browser.DefaultConnectorType)
+	}
+	resolution, err := proxy.ResolveProxyKernelForConnector(resolvedProxyConfig, proxies, resolvedProxyID, connectorType)
+	if err != nil {
+		startErr := fmt.Errorf("实例启动失败：%s", err.Error())
+		profile.LastError = startErr.Error()
+		log.Error("代理内核选择失败",
+			logger.F("profile_id", profileID),
+			logger.F("proxy_id", resolvedProxyID),
+			logger.F("error", err.Error()),
+			logger.F("reason", startErr.Error()),
+		)
+		return "", profileProxyBridgeRef{}, false, startErr
+	}
+	log.Info("实际代理内核", logger.F("profile_id", profileID), logger.F("engine", resolution.Kernel), logger.F("protocol", resolution.Protocol), logger.F("proxy_id", resolvedProxyID), logger.F("reason", resolution.Reason))
+
+	switch resolution.Kernel {
+	case proxy.ProxyKernelMihomo:
+		if a.clashMgr == nil {
+			startErr := fmt.Errorf("实例启动失败：mihomo 管理器未初始化，无法启动该协议代理。请先下载 Mihomo 内核。")
 			profile.LastError = startErr.Error()
-			return "", "", false, startErr
+			return "", profileProxyBridgeRef{}, false, startErr
 		}
-		log.Info("sing-box 桥接成功", logger.F("socks_url", socksURL))
-		return socksURL, "", false, nil
-	}
-
-	if proxy.RequiresBridge(resolvedProxyConfig, proxies, resolvedProxyID) || proxy.RequiresLocalProxyBridgeForBrowser(resolvedProxyConfig) {
+		proxyURL, bridgeKey, bridgeErr := a.clashMgr.AcquireNodeBridge(resolvedProxyConfig, proxies, resolvedProxyID)
+		if bridgeErr != nil {
+			startErr := fmt.Errorf("实例启动失败：mihomo 代理桥接失败：%v", bridgeErr)
+			log.Error("代理桥接失败(mihomo)", logger.F("error", bridgeErr.Error()), logger.F("reason", startErr.Error()))
+			profile.LastError = startErr.Error()
+			return "", profileProxyBridgeRef{}, false, startErr
+		}
+		return proxyURL, newProfileProxyBridgeRef(profileProxyBridgeEngineMihomo, bridgeKey), bridgeKey != "", nil
+	case proxy.ProxyKernelSingBox:
+		if a.singboxMgr == nil {
+			startErr := fmt.Errorf("实例启动失败：sing-box 管理器未初始化，无法启动该协议代理。请检查 sing-box 内核配置。")
+			profile.LastError = startErr.Error()
+			return "", profileProxyBridgeRef{}, false, startErr
+		}
+		socksURL, bridgeKey, bridgeErr := a.singboxMgr.AcquireBridge(resolvedProxyConfig, proxies, resolvedProxyID)
+		if bridgeErr != nil {
+			startErr := fmt.Errorf("实例启动失败：sing-box 代理桥接失败：%v", bridgeErr)
+			log.Error("代理桥接失败(sing-box)", logger.F("error", bridgeErr.Error()), logger.F("reason", startErr.Error()))
+			profile.LastError = startErr.Error()
+			return "", profileProxyBridgeRef{}, false, startErr
+		}
+		return socksURL, newProfileProxyBridgeRef(profileProxyBridgeEngineSingBox, bridgeKey), bridgeKey != "", nil
+	case proxy.ProxyKernelXray:
+		if a.xrayMgr == nil {
+			startErr := fmt.Errorf("实例启动失败：xray 管理器未初始化，无法启动该协议代理。")
+			profile.LastError = startErr.Error()
+			return "", profileProxyBridgeRef{}, false, startErr
+		}
 		socksURL, bridgeKey, bridgeErr := a.xrayMgr.AcquireBridge(resolvedProxyConfig, proxies, resolvedProxyID)
 		if bridgeErr != nil {
-			startErr := fmt.Errorf("实例启动失败：代理桥接启动失败（xray）。原因：%v。请检查代理节点配置、xray 可执行文件是否存在，以及本地端口是否被占用。", bridgeErr)
-			log.Error("代理桥接失败(xray)",
-				logger.F("error", bridgeErr.Error()),
-				logger.F("reason", startErr.Error()),
-			)
+			startErr := fmt.Errorf("实例启动失败：Xray 代理桥接失败：%v", bridgeErr)
+			log.Error("代理桥接失败(xray)", logger.F("error", bridgeErr.Error()), logger.F("reason", startErr.Error()))
 			profile.LastError = startErr.Error()
-			return "", "", false, startErr
+			return "", profileProxyBridgeRef{}, false, startErr
 		}
-		log.Info("xray 桥接成功", logger.F("socks_url", socksURL))
-		return socksURL, bridgeKey, bridgeKey != "", nil
+		return socksURL, newProfileProxyBridgeRef(profileProxyBridgeEngineXray, bridgeKey), bridgeKey != "", nil
+	case proxy.ProxyKernelNative:
+		return resolvedProxyConfig, profileProxyBridgeRef{}, false, nil
+	default:
+		startErr := fmt.Errorf("实例启动失败：无法为协议 %s 选择代理内核", resolution.Protocol)
+		profile.LastError = startErr.Error()
+		return "", profileProxyBridgeRef{}, false, startErr
 	}
-
-	return resolvedProxyConfig, "", false, nil
 }
 
 func resolveTemporaryBrowserStartProxy(proxyID string, proxyConfig string, proxies []BrowserProxy) (string, string, error) {

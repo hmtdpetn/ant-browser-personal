@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -58,15 +59,58 @@ func resolveEnvPath(path string, appRoot string) string {
 func waitPortReady(host string, port int, timeout time.Duration) error {
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	deadline := time.Now().Add(timeout)
+	var lastErr error
 	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
 		if err == nil {
 			conn.Close()
 			return nil
 		}
+		lastErr = err
 		time.Sleep(100 * time.Millisecond)
 	}
+	if lastErr != nil {
+		return fmt.Errorf("端口 %d 不可用: %w", port, lastErr)
+	}
 	return fmt.Errorf("端口 %d 不可用", port)
+}
+
+func waitSocks5Ready(host string, port int, timeout time.Duration) error {
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if err := checkSocks5Handshake(addr, 300*time.Millisecond); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if lastErr != nil {
+		return fmt.Errorf("socks5 端口 %d 未就绪: %w", port, lastErr)
+	}
+	return fmt.Errorf("socks5 端口 %d 未就绪", port)
+}
+
+func checkSocks5Handshake(addr string, timeout time.Duration) error {
+	conn, err := net.DialTimeout("tcp", addr, timeout)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+	if _, err := conn.Write([]byte{0x05, 0x01, 0x00}); err != nil {
+		return err
+	}
+	buf := make([]byte, 2)
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		return err
+	}
+	if buf[0] != 0x05 || buf[1] != 0x00 {
+		return fmt.Errorf("socks5 握手响应异常: %v", buf)
+	}
+	return nil
 }
 
 // nextAvailablePort 分配一个可用端口。

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export interface Notification {
     id: string
@@ -17,17 +18,25 @@ interface NotificationState {
     clearNotifications: () => void
 }
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+const MAX_NOTIFICATIONS = 100
+
+function formatNotificationTime() {
+    const now = new Date()
+    const pad = (value: number) => String(value).padStart(2, '0')
+    return `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
+
+export const useNotificationStore = create<NotificationState>()(persist((set) => ({
     notifications: [],
 
     addNotification: (data) => set((state) => {
         const newNotification: Notification = {
             ...data,
             id: Math.random().toString(36).substring(2, 9),
-            time: '刚刚',
+            time: formatNotificationTime(),
             read: false,
         }
-        return { notifications: [newNotification, ...state.notifications] }
+        return { notifications: [newNotification, ...state.notifications].slice(0, MAX_NOTIFICATIONS) }
     }),
 
     markAsRead: (id) => set((state) => ({
@@ -41,4 +50,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     })),
 
     clearNotifications: () => set({ notifications: [] }),
+}), {
+    name: 'ant-browser-notifications',
+    partialize: (state) => ({ notifications: state.notifications }),
 }))

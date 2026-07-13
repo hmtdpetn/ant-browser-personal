@@ -1,11 +1,14 @@
 package backend
 
 import (
+	"ant-chrome/backend/internal/config"
+	"ant-chrome/backend/internal/proxy"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,10 +29,20 @@ var clashSubscriptionUserAgents = []string{
 
 // BrowserProxyFetchClashByURL 拉取 Clash 订阅 URL，并返回可直接导入的 YAML 文本与建议配置。
 func (a *App) BrowserProxyFetchClashByURL(rawURL string) (map[string]interface{}, error) {
+	return a.browserProxyFetchClashByURL(rawURL, "")
+}
+
+// BrowserProxyFetchClashByURLWithProxy 按当前连接栈使用指定代理拉取 Clash 订阅。
+func (a *App) BrowserProxyFetchClashByURLWithProxy(rawURL string, proxyID string) (map[string]interface{}, error) {
+	return a.browserProxyFetchClashByURL(rawURL, proxyID)
+}
+
+func (a *App) browserProxyFetchClashByURL(rawURL string, proxyID string) (map[string]interface{}, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return nil, fmt.Errorf("订阅 URL 不能为空")
 	}
+	proxyID = strings.TrimSpace(proxyID)
 
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil || parsedURL.Host == "" {
@@ -40,8 +53,13 @@ func (a *App) BrowserProxyFetchClashByURL(rawURL string) (map[string]interface{}
 		return nil, fmt.Errorf("仅支持 http/https URL")
 	}
 
-	client := &http.Client{
-		Timeout: clashSubscriptionTimeout,
+	client := &http.Client{Timeout: clashSubscriptionTimeout}
+	if proxyID != "" {
+		proxyClient, err := a.clashSubscriptionProxyClient(proxyID)
+		if err != nil {
+			return nil, err
+		}
+		client = proxyClient
 	}
 	content, payload, err := fetchClashSubscriptionWithFallback(client, parsedURL.String())
 	if err != nil {
@@ -63,6 +81,25 @@ func (a *App) BrowserProxyFetchClashByURL(rawURL string) (map[string]interface{}
 		"dnsServers":     dnsYAML,
 		"suggestedGroup": suggestedGroup,
 	}, nil
+}
+
+func (a *App) clashSubscriptionProxyClient(proxyID string) (*http.Client, error) {
+	if a == nil || a.config == nil {
+		return nil, fmt.Errorf("代理拉取需要应用配置已初始化")
+	}
+	proxies := a.getLatestProxies()
+	found := false
+	for _, item := range proxies {
+		if strings.EqualFold(strings.TrimSpace(item.ProxyId), proxyID) && strings.TrimSpace(item.ProxyConfig) != "" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("拉取代理不存在或配置为空")
+	}
+	connectorType := config.NormalizeBrowserConnectorType(a.config.Browser.DefaultConnectorType)
+	return proxy.BuildProxyHTTPClient("", proxyID, proxies, a.xrayMgr, a.singboxMgr, a.clashMgr, connectorType, clashSubscriptionTimeout)
 }
 
 func fetchClashSubscriptionWithFallback(client *http.Client, targetURL string) (string, interface{}, error) {
@@ -144,7 +181,118 @@ func normalizeClashSubscriptionContent(body []byte) (string, interface{}, error)
 		}
 	}
 
-	return "", nil, fmt.Errorf("URL 内容不是有效 Clash YAML（需包含 proxies）")
+	for _, text := range tryTexts {
+		converted, ok := convertProxyURIListToClashYAML(text)
+		if !ok {
+			continue
+		}
+		payload, parsed := parseClashPayload(converted)
+		if parsed && clashProxyCount(payload) > 0 {
+			return converted, payload, nil
+		}
+	}
+
+	return "", nil, fmt.Errorf("URL 内容不是有效 Clash YAML 或 URI 订阅（需包含 proxies 或支持的代理 URI）")
+}
+
+func convertProxyURIListToClashYAML(text string) (string, bool) {
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	proxies := make([]map[string]interface{}, 0)
+	for index, line := range lines {
+		raw := strings.TrimSpace(line)
+		if raw == "" {
+			continue
+		}
+		node, ok := proxyURIToClashNode(raw, index)
+		if ok {
+			proxies = append(proxies, node)
+		}
+	}
+	if len(proxies) == 0 {
+		return "", false
+	}
+	payload := map[string]interface{}{"proxies": proxies}
+	data, err := yaml.Marshal(payload)
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(data)), true
+}
+
+func proxyURIToClashNode(raw string, index int) (map[string]interface{}, bool) {
+	u, err := url.Parse(raw)
+	if err != nil || strings.TrimSpace(u.Scheme) == "" || strings.TrimSpace(u.Hostname()) == "" {
+		return nil, false
+	}
+	scheme := strings.ToLower(strings.TrimSpace(u.Scheme))
+	port := 0
+	if portText := strings.TrimSpace(u.Port()); portText != "" {
+		if parsedPort, err := strconv.Atoi(portText); err == nil {
+			port = parsedPort
+		}
+	}
+	if port == 0 {
+		return nil, false
+	}
+	name := proxyURIName(u, index)
+	switch scheme {
+	case "trojan":
+		password := u.User.Username()
+		if password == "" {
+			return nil, false
+		}
+		node := map[string]interface{}{
+			"name":     name,
+			"type":     "trojan",
+			"server":   u.Hostname(),
+			"port":     port,
+			"password": password,
+		}
+		q := u.Query()
+		if sni := firstNonEmptyQueryParam(q, "sni", "peer", "servername"); sni != "" {
+			node["sni"] = sni
+		}
+		if network := firstNonEmptyQueryParam(q, "type", "network"); network != "" {
+			node["network"] = network
+		}
+		if uriBoolParam(q, "insecure", "allowInsecure", "skip-cert-verify") {
+			node["skip-cert-verify"] = true
+		}
+		return node, true
+	default:
+		return nil, false
+	}
+}
+
+func proxyURIName(u *url.URL, index int) string {
+	if u.Fragment != "" {
+		if name, err := url.QueryUnescape(u.Fragment); err == nil && strings.TrimSpace(name) != "" {
+			return strings.TrimSpace(name)
+		}
+		if strings.TrimSpace(u.Fragment) != "" {
+			return strings.TrimSpace(u.Fragment)
+		}
+	}
+	return fmt.Sprintf("导入代理 %d", index+1)
+}
+
+func firstNonEmptyQueryParam(q url.Values, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(q.Get(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func uriBoolParam(q url.Values, keys ...string) bool {
+	for _, key := range keys {
+		value := strings.ToLower(strings.TrimSpace(q.Get(key)))
+		if value == "1" || value == "true" || value == "yes" {
+			return true
+		}
+	}
+	return false
 }
 
 func decodeBase64Text(raw string) (string, bool) {

@@ -1,4 +1,12 @@
-import type { BrowserProfile, BrowserProfileInput } from '../types'
+import { applyBrowserProfileCopyOptionsToArgs, createBrowserProfileCopyOptions } from '../copyOptions'
+import { buildBrowserProfileCopyName } from '../copyName'
+import type {
+  BrowserProfile,
+  BrowserProfileCopyOptions,
+  BrowserProfileInput,
+  BrowserProfilePackageExportResult,
+  BrowserProfilePackageImportResult,
+} from '../types'
 import { getBindings, getMockProfiles, nowISOString, setMockProfiles } from './runtime'
 
 export async function fetchBrowserProfiles(): Promise<BrowserProfile[]> {
@@ -6,7 +14,15 @@ export async function fetchBrowserProfiles(): Promise<BrowserProfile[]> {
   if (bindings?.BrowserProfileList) {
     return (await bindings.BrowserProfileList()) || []
   }
-  return getMockProfiles()
+  return getMockProfiles().filter((profile) => !profile.deletedAt)
+}
+
+export async function fetchBrowserProfileTrash(): Promise<BrowserProfile[]> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileTrashList) {
+    return (await bindings.BrowserProfileTrashList()) || []
+  }
+  return getMockProfiles().filter((profile) => !!profile.deletedAt)
 }
 
 export async function fetchBrowserProfilesByTag(tag: string): Promise<BrowserProfile[]> {
@@ -26,6 +42,33 @@ export async function fetchAllTags(): Promise<string[]> {
   const tags = new Set<string>()
   getMockProfiles().forEach((profile) => profile.tags?.forEach((tag) => tags.add(tag)))
   return Array.from(tags).sort()
+}
+
+export async function exportBrowserProfilePackage(profileIds: string[]): Promise<BrowserProfilePackageExportResult> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfilePackageExport) {
+    return await bindings.BrowserProfilePackageExport(profileIds)
+  }
+  return {
+    cancelled: true,
+    zipPath: '',
+    profileCount: 0,
+    fileCount: 0,
+    message: '当前环境不支持导出实例',
+  }
+}
+
+export async function importBrowserProfilePackage(): Promise<BrowserProfilePackageImportResult> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfilePackageImport) {
+    return await bindings.BrowserProfilePackageImport()
+  }
+  return {
+    cancelled: true,
+    importedCount: 0,
+    profileMappings: {},
+    message: '当前环境不支持导入实例',
+  }
 }
 
 export async function createBrowserProfile(input: BrowserProfileInput): Promise<BrowserProfile | null> {
@@ -76,12 +119,69 @@ export async function deleteBrowserProfile(profileId: string): Promise<boolean> 
     return true
   }
 
+  const deletedAt = nowISOString()
+  setMockProfiles(getMockProfiles().map((item) => (
+    item.profileId === profileId ? { ...item, deletedAt, updatedAt: deletedAt, running: false } : item
+  )))
+  return true
+}
+
+export async function restoreBrowserProfile(profileId: string): Promise<BrowserProfile | null> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileRestore) {
+    return (await bindings.BrowserProfileRestore(profileId)) || null
+  }
+
+  const updatedAt = nowISOString()
+  let restored: BrowserProfile | null = null
+  const nextProfiles = getMockProfiles().map((item) => {
+    if (item.profileId !== profileId) return item
+    restored = { ...item, deletedAt: '', updatedAt }
+    return restored
+  })
+  setMockProfiles(nextProfiles)
+  return restored
+}
+
+export async function permanentlyDeleteBrowserProfile(profileId: string): Promise<boolean> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfilePermanentlyDelete) {
+    await bindings.BrowserProfilePermanentlyDelete(profileId)
+    return true
+  }
+
   setMockProfiles(getMockProfiles().filter((item) => item.profileId !== profileId))
   return true
 }
 
-export async function copyBrowserProfile(profileId: string, newName: string): Promise<BrowserProfile | null> {
+export async function cleanupBrowserProfileTrash(): Promise<boolean> {
   const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileTrashCleanup) {
+    await bindings.BrowserProfileTrashCleanup()
+    return true
+  }
+
+  const expiredBefore = Date.now() - 3 * 24 * 60 * 60 * 1000
+  setMockProfiles(getMockProfiles().filter((item) => {
+    if (!item.deletedAt) return true
+    const deletedAt = new Date(item.deletedAt).getTime()
+    return Number.isNaN(deletedAt) || deletedAt > expiredBefore
+  }))
+  return true
+}
+
+export async function copyBrowserProfile(
+  profileId: string,
+  newName: string,
+  options: BrowserProfileCopyOptions = createBrowserProfileCopyOptions(),
+): Promise<BrowserProfile | null> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileCopyWithOptions) {
+    return (await bindings.BrowserProfileCopyWithOptions(profileId, newName, options)) || null
+  }
+  if (bindings?.BrowserProfileCopyWithMode) {
+    return (await bindings.BrowserProfileCopyWithMode(profileId, newName, options.mode)) || null
+  }
   if (bindings?.BrowserProfileCopy) {
     return (await bindings.BrowserProfileCopy(profileId, newName)) || null
   }
@@ -96,8 +196,13 @@ export async function copyBrowserProfile(profileId: string, newName: string): Pr
   const copy: BrowserProfile = {
     ...source,
     profileId: `mock-${timestamp}`,
-    profileName: newName || `${source.profileName} (副本)`,
+    profileName: newName.trim() || buildBrowserProfileCopyName(source.profileName),
     userDataDir: `mock-${timestamp}`,
+    fingerprintArgs: applyBrowserProfileCopyOptionsToArgs(
+      source.fingerprintArgs || [],
+      [],
+      options,
+    ),
     launchCode,
     running: false,
     debugReady: false,

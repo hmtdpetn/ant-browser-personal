@@ -33,6 +33,7 @@ type Profile struct {
 	LastError          string   `json:"lastError"`
 	CreatedAt          string   `json:"createdAt"`
 	UpdatedAt          string   `json:"updatedAt"`
+	DeletedAt          string   `json:"deletedAt"`
 	LastStartAt        string   `json:"lastStartAt"`
 	LastStopAt         string   `json:"lastStopAt"`
 }
@@ -51,6 +52,12 @@ type ProfileInput struct {
 	GroupId         string   `json:"groupId"` // 所属分组ID
 }
 
+// ProfileCopyOptions 复制实例时的附加选项。
+type ProfileCopyOptions struct {
+	Mode              string   `json:"mode"`
+	AutomationTargets []string `json:"automationTargets"`
+}
+
 // Tab 浏览器标签页
 type Tab struct {
 	TabId  string `json:"tabId"`
@@ -65,9 +72,11 @@ type Settings struct {
 	DefaultFingerprintArgs []string `json:"defaultFingerprintArgs"`
 	DefaultLaunchArgs      []string `json:"defaultLaunchArgs"`
 	DefaultStartURLs       []string `json:"defaultStartUrls"`
+	LightStartEnabled      bool     `json:"lightStartEnabled"`
 	RestoreLastSession     bool     `json:"restoreLastSession"`
 	StartReadyTimeoutMs    int      `json:"startReadyTimeoutMs"`
 	StartStableWindowMs    int      `json:"startStableWindowMs"`
+	DefaultConnectorType   string   `json:"defaultConnectorType"`
 }
 
 // CoreInput 内核配置输入
@@ -137,11 +146,12 @@ type Manager struct {
 	CodeProvider     CodeProvider
 
 	// DAO 层（注入后使用 SQLite 存储，未注入时降级到 config.yaml）
-	ProfileDAO  ProfileDAO
-	ProxyDAO    ProxyDAO
-	CoreDAO     CoreDAO
-	BookmarkDAO BookmarkDAO
-	GroupDAO    GroupDAO
+	ProfileDAO   ProfileDAO
+	ProxyDAO     ProxyDAO
+	CoreDAO      CoreDAO
+	BookmarkDAO  BookmarkDAO
+	GroupDAO     GroupDAO
+	ExtensionDAO ExtensionDAO
 }
 
 // XrayBridge Xray 桥接进程

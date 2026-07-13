@@ -87,6 +87,8 @@ func buildOutboundVless(node string) (map[string]interface{}, error) {
 	flow := q.Get("flow")
 	sec := strings.ToLower(q.Get("security"))
 	sni := q.Get("sni")
+	fingerprint := firstNonEmptyQueryValue(q, "fp", "client-fingerprint", "fingerprint")
+	insecure := queryBool(q, "insecure", "allowInsecure")
 	out := map[string]interface{}{
 		"protocol": "vless",
 		"tag":      "proxy-out",
@@ -109,8 +111,18 @@ func buildOutboundVless(node string) (map[string]interface{}, error) {
 	stream := map[string]interface{}{}
 	if sec == "tls" || sec == "reality" {
 		stream["security"] = "tls"
+		tlsSettings := map[string]interface{}{}
 		if sni != "" {
-			stream["tlsSettings"] = map[string]interface{}{"serverName": sni}
+			tlsSettings["serverName"] = sni
+		}
+		if fingerprint != "" {
+			tlsSettings["fingerprint"] = fingerprint
+		}
+		if insecure {
+			tlsSettings[xrayTLSInsecurePinKey] = true
+		}
+		if len(tlsSettings) > 0 {
+			stream["tlsSettings"] = tlsSettings
 		}
 	}
 	network := q.Get("type")
@@ -157,24 +169,36 @@ func buildOutboundTrojan(node string) (map[string]interface{}, error) {
 	if sni == "" {
 		sni = q.Get("peer")
 	}
-	skipVerify := q.Get("allowInsecure") == "1" || strings.ToLower(q.Get("allowInsecure")) == "true"
+	fingerprint := firstNonEmptyQueryValue(q, "fp", "client-fingerprint", "fingerprint")
+	insecure := queryBool(q, "insecure", "allowInsecure")
 	network := q.Get("type")
 
 	out := map[string]interface{}{
 		"protocol": "trojan",
 		"tag":      "proxy-out",
 		"settings": map[string]interface{}{
-			"address":  host,
-			"port":     p,
-			"password": password,
+			"servers": []interface{}{
+				map[string]interface{}{
+					"address":  host,
+					"port":     p,
+					"password": password,
+				},
+			},
 		},
 	}
 	stream := map[string]interface{}{
-		"security": "tls",
-		"tlsSettings": map[string]interface{}{
-			"serverName":    sni,
-			"allowInsecure": skipVerify,
-		},
+		"security":    "tls",
+		"tlsSettings": map[string]interface{}{},
+	}
+	tlsSettings := stream["tlsSettings"].(map[string]interface{})
+	if sni != "" {
+		tlsSettings["serverName"] = sni
+	}
+	if fingerprint != "" {
+		tlsSettings["fingerprint"] = fingerprint
+	}
+	if insecure {
+		tlsSettings[xrayTLSInsecurePinKey] = true
 	}
 	if network == "ws" {
 		stream["network"] = "ws"
@@ -243,10 +267,10 @@ func buildOutboundSS(node string) (map[string]interface{}, error) {
 			method = parts[0]
 			password = parts[1]
 		}
-		hostPort := strings.Split(hostPart, ":")
-		if len(hostPort) == 2 {
-			host = hostPort[0]
-			port, _ = strconv.Atoi(hostPort[1])
+		parsedHost, parsedPort, splitErr := splitHostPortLenient(hostPart)
+		if splitErr == nil {
+			host = parsedHost
+			port = parsedPort
 		}
 	}
 
@@ -258,10 +282,14 @@ func buildOutboundSS(node string) (map[string]interface{}, error) {
 		"protocol": "shadowsocks",
 		"tag":      "proxy-out",
 		"settings": map[string]interface{}{
-			"address":  host,
-			"port":     port,
-			"method":   method,
-			"password": password,
+			"servers": []interface{}{
+				map[string]interface{}{
+					"address":  host,
+					"port":     port,
+					"method":   method,
+					"password": password,
+				},
+			},
 		},
 	}, nil
 }

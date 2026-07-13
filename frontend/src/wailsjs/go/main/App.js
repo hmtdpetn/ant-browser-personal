@@ -38,6 +38,10 @@ export function AutomationScriptExport(arg1) {
   return window['go']['main']['App']['AutomationScriptExport'](arg1);
 }
 
+export function AutomationScriptExportBatchZip(arg1) {
+  return window['go']['main']['App']['AutomationScriptExportBatchZip'](arg1);
+}
+
 export function AutomationScriptExportDirectory(arg1) {
   return window['go']['main']['App']['AutomationScriptExportDirectory'](arg1);
 }
@@ -62,12 +66,20 @@ export function AutomationScriptImportLocalFile() {
   return window['go']['main']['App']['AutomationScriptImportLocalFile']();
 }
 
+export function AutomationScriptImportLocalLibrary() {
+  return window['go']['main']['App']['AutomationScriptImportLocalLibrary']();
+}
+
 export function AutomationScriptImportRemote(arg1) {
   return window['go']['main']['App']['AutomationScriptImportRemote'](arg1);
 }
 
 export function AutomationScriptImportText(arg1) {
   return window['go']['main']['App']['AutomationScriptImportText'](arg1);
+}
+
+export function AutomationScriptInvokePublicAPI(arg1) {
+  return window['go']['main']['App']['AutomationScriptInvokePublicAPI'](arg1);
 }
 
 export function AutomationScriptList() {
@@ -146,8 +158,20 @@ export function BrowserCoreExtendedInfo() {
   return window['go']['main']['App']['BrowserCoreExtendedInfo']();
 }
 
+export function BrowserCoreImportLocal() {
+  return window['go']['main']['App']['BrowserCoreImportLocal']();
+}
+
+export function BrowserCoreImportLocalDirectory() {
+  return window['go']['main']['App']['BrowserCoreImportLocalDirectory']();
+}
+
 export function BrowserCoreList() {
   return window['go']['main']['App']['BrowserCoreList']();
+}
+
+export function BrowserCoreRedownload(arg1, arg2, arg3) {
+  return window['go']['main']['App']['BrowserCoreRedownload'](arg1, arg2, arg3);
 }
 
 export function BrowserCoreSave(arg1) {
@@ -168,6 +192,58 @@ export function BrowserCoreValidate(arg1) {
 
 export function BrowserExportCookies(arg1) {
   return window['go']['main']['App']['BrowserExportCookies'](arg1);
+}
+
+export function BrowserExtensionDelete(arg1) {
+  return window['go']['main']['App']['BrowserExtensionDelete'](arg1);
+}
+
+export function BrowserExtensionInstall(arg1) {
+  return window['go']['main']['App']['BrowserExtensionInstall'](arg1);
+}
+
+export function BrowserExtensionInstallLocalDirectory() {
+  return window['go']['main']['App']['BrowserExtensionInstallLocalDirectory']();
+}
+
+export function BrowserExtensionInstallLocalFile() {
+  return window['go']['main']['App']['BrowserExtensionInstallLocalFile']();
+}
+
+export function BrowserExtensionInstallManualDownloadFile(arg1) {
+  return window['go']['main']['App']['BrowserExtensionInstallManualDownloadFile'](arg1);
+}
+
+export function BrowserExtensionInstallWithProxy(arg1) {
+  return window['go']['main']['App']['BrowserExtensionInstallWithProxy'](arg1);
+}
+
+export function BrowserExtensionList() {
+  return window['go']['main']['App']['BrowserExtensionList']();
+}
+
+export function BrowserExtensionListManualDownloadFiles() {
+  return window['go']['main']['App']['BrowserExtensionListManualDownloadFiles']();
+}
+
+export function BrowserExtensionLookup(arg1) {
+  return window['go']['main']['App']['BrowserExtensionLookup'](arg1);
+}
+
+export function BrowserExtensionLookupWithProxy(arg1) {
+  return window['go']['main']['App']['BrowserExtensionLookupWithProxy'](arg1);
+}
+
+export function BrowserExtensionManualInstallGuide(arg1) {
+  return window['go']['main']['App']['BrowserExtensionManualInstallGuide'](arg1);
+}
+
+export function BrowserExtensionOpenManualDownloadDir() {
+  return window['go']['main']['App']['BrowserExtensionOpenManualDownloadDir']();
+}
+
+export function BrowserExtensionSetEnabled(arg1, arg2) {
+  return window['go']['main']['App']['BrowserExtensionSetEnabled'](arg1, arg2);
 }
 
 export function BrowserGetAllTags() {
@@ -226,12 +302,28 @@ export function BrowserProfileCopy(arg1, arg2) {
   return window['go']['main']['App']['BrowserProfileCopy'](arg1, arg2);
 }
 
+export function BrowserProfileCopyWithMode(arg1, arg2, arg3) {
+  return window['go']['main']['App']['BrowserProfileCopyWithMode'](arg1, arg2, arg3);
+}
+
+export function BrowserProfileCopyWithOptions(arg1, arg2, arg3) {
+  return window['go']['main']['App']['BrowserProfileCopyWithOptions'](arg1, arg2, arg3);
+}
+
 export function BrowserProfileCreate(arg1) {
   return window['go']['main']['App']['BrowserProfileCreate'](arg1);
 }
 
 export function BrowserProfileDelete(arg1) {
   return window['go']['main']['App']['BrowserProfileDelete'](arg1);
+}
+
+export function BrowserProfileExtensionGet(arg1) {
+  return window['go']['main']['App']['BrowserProfileExtensionGet'](arg1);
+}
+
+export function BrowserProfileExtensionSave(arg1, arg2, arg3) {
+  return window['go']['main']['App']['BrowserProfileExtensionSave'](arg1, arg2, arg3);
 }
 
 export function BrowserProfileGetCode(arg1) {
@@ -246,8 +338,24 @@ export function BrowserProfileListByTag(arg1) {
   return window['go']['main']['App']['BrowserProfileListByTag'](arg1);
 }
 
+export function BrowserProfilePackageExport(arg1) {
+  return window['go']['main']['App']['BrowserProfilePackageExport'](arg1);
+}
+
+export function BrowserProfilePackageImport() {
+  return window['go']['main']['App']['BrowserProfilePackageImport']();
+}
+
+export function BrowserProfilePermanentlyDelete(arg1) {
+  return window['go']['main']['App']['BrowserProfilePermanentlyDelete'](arg1);
+}
+
 export function BrowserProfileRegenerateCode(arg1) {
   return window['go']['main']['App']['BrowserProfileRegenerateCode'](arg1);
+}
+
+export function BrowserProfileRestore(arg1) {
+  return window['go']['main']['App']['BrowserProfileRestore'](arg1);
 }
 
 export function BrowserProfileSetCode(arg1, arg2) {
@@ -256,6 +364,14 @@ export function BrowserProfileSetCode(arg1, arg2) {
 
 export function BrowserProfileSetKeywords(arg1, arg2) {
   return window['go']['main']['App']['BrowserProfileSetKeywords'](arg1, arg2);
+}
+
+export function BrowserProfileTrashCleanup() {
+  return window['go']['main']['App']['BrowserProfileTrashCleanup']();
+}
+
+export function BrowserProfileTrashList() {
+  return window['go']['main']['App']['BrowserProfileTrashList']();
 }
 
 export function BrowserProfileUpdate(arg1, arg2) {
@@ -270,12 +386,40 @@ export function BrowserProxyBatchTestSpeed(arg1, arg2) {
   return window['go']['main']['App']['BrowserProxyBatchTestSpeed'](arg1, arg2);
 }
 
+export function BrowserProxyBatchWarmupBridge(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyBatchWarmupBridge'](arg1, arg2);
+}
+
+export function BrowserProxyBuildDiagnostic(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyBuildDiagnostic'](arg1, arg2);
+}
+
 export function BrowserProxyCheckIPHealth(arg1) {
   return window['go']['main']['App']['BrowserProxyCheckIPHealth'](arg1);
 }
 
+export function BrowserProxyCoreDownload(arg1) {
+  return window['go']['main']['App']['BrowserProxyCoreDownload'](arg1);
+}
+
+export function BrowserProxyCoreDownloadInfo(arg1) {
+  return window['go']['main']['App']['BrowserProxyCoreDownloadInfo'](arg1);
+}
+
+export function BrowserProxyCoreOpenLocal(arg1) {
+  return window['go']['main']['App']['BrowserProxyCoreOpenLocal'](arg1);
+}
+
+export function BrowserProxyCoreStatus(arg1) {
+  return window['go']['main']['App']['BrowserProxyCoreStatus'](arg1);
+}
+
 export function BrowserProxyFetchClashByURL(arg1) {
   return window['go']['main']['App']['BrowserProxyFetchClashByURL'](arg1);
+}
+
+export function BrowserProxyFetchClashByURLWithProxy(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyFetchClashByURLWithProxy'](arg1, arg2);
 }
 
 export function BrowserProxyList() {
@@ -290,8 +434,24 @@ export function BrowserProxyListGroups() {
   return window['go']['main']['App']['BrowserProxyListGroups']();
 }
 
+export function BrowserProxyProbeBrowserPage(arg1) {
+  return window['go']['main']['App']['BrowserProxyProbeBrowserPage'](arg1);
+}
+
+export function BrowserProxyResolveLocation(arg1) {
+  return window['go']['main']['App']['BrowserProxyResolveLocation'](arg1);
+}
+
 export function BrowserProxyTestSpeed(arg1) {
   return window['go']['main']['App']['BrowserProxyTestSpeed'](arg1);
+}
+
+export function BrowserProxyWarmupBridge(arg1) {
+  return window['go']['main']['App']['BrowserProxyWarmupBridge'](arg1);
+}
+
+export function BrowserProxyWarmupBridgeWithConfig(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyWarmupBridgeWithConfig'](arg1, arg2);
 }
 
 export function BrowserRenameTag(arg1, arg2) {
@@ -334,8 +494,8 @@ export function ForceQuit() {
   return window['go']['main']['App']['ForceQuit']();
 }
 
-export function GenerateCDKeys(arg1) {
-  return window['go']['main']['App']['GenerateCDKeys'](arg1);
+export function FrontendOperationLog(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['FrontendOperationLog'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function GetAppConfig() {
@@ -364,10 +524,6 @@ export function GetInterceptor() {
 
 export function GetLaunchServerInfo() {
   return window['go']['main']['App']['GetLaunchServerInfo']();
-}
-
-export function GetLicenseStatus() {
-  return window['go']['main']['App']['GetLicenseStatus']();
 }
 
 export function GetLogLevel() {
@@ -412,14 +568,6 @@ export function OpenUserDataDir(arg1) {
 
 export function QuitAppOnly() {
   return window['go']['main']['App']['QuitAppOnly']();
-}
-
-export function RedeemCDKey(arg1) {
-  return window['go']['main']['App']['RedeemCDKey'](arg1);
-}
-
-export function RedeemGithubStar() {
-  return window['go']['main']['App']['RedeemGithubStar']();
 }
 
 export function ReloadConfig() {

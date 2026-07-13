@@ -30,6 +30,10 @@ func (a *App) browserInstanceStartInternal(profileId string, extraLaunchArgs []s
 	}
 
 	plan, err := a.prepareBrowserStartPlan(input, profile)
+	if err == errBrowserStartHandledByRecoveredRuntime {
+		a.emitBrowserInstanceStarted(profile, true)
+		return profile, nil
+	}
 	if err != nil {
 		return profile, err
 	}

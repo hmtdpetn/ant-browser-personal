@@ -1,224 +1,27 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Loader2, Pencil, Plus, Search, Trash2, Wifi, X } from 'lucide-react'
-import { Button, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
+import { Plus, Search, Wifi, X } from 'lucide-react'
+import { ConfirmModal, toast } from '../../../shared/components'
 import type { BrowserProxy } from '../types'
 import { browserProxyBatchTestSpeed, browserProxyTestSpeed, fetchBrowserProxies, fetchBrowserProxyGroups, saveBrowserProxies } from '../api'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { ProxyImportModal } from './ProxyImportModal'
+import { ProxyEditModal } from './ProxyPickerModal.edit'
+import { GroupItem, ProxyRow } from './ProxyPickerModal.rows'
+import { ALL_GROUP, BATCH_TEST_CONCURRENCY, DIRECT_PROXY_ID, INITIAL_CHAIN_EDIT_FORM, SPEED_RESULT_EVENT, buildChainProxyConfig, formatProxyConfigForDisplay, parseChainSocks5Config, toChainEditForm, type ChainEditForm, type ChainHopForm, type SpeedResult } from './ProxyPickerModal.helpers'
 
 interface ProxyPickerModalProps {
   open: boolean
   currentProxyId: string
+  title?: string
   onSelect: (proxy: BrowserProxy) => void
   onClose: () => void
   onProxyListUpdated?: (proxies: BrowserProxy[]) => void
   onProxyDeleted?: (deletedProxyId: string, nextProxies: BrowserProxy[]) => void
+  onProxyTested?: (proxyId: string, result: SpeedResult) => void
 }
 
-type SpeedResult = { ok: boolean; latencyMs: number; error: string }
-
-type ChainSocksHop = {
-  protocol?: 'http' | 'socks5'
-  server?: string
-  port?: number
-  username?: string
-  password?: string
-}
-
-type ChainSocksConfig = {
-  localPort?: number
-  first?: ChainSocksHop
-  second?: ChainSocksHop
-}
-
-interface ChainHopForm {
-  protocol: 'http' | 'socks5'
-  server: string
-  port: string
-  username: string
-  password: string
-}
-
-interface ChainEditForm {
-  proxyName: string
-  localPort: string
-  first: ChainHopForm
-  second: ChainHopForm
-}
-
-const INITIAL_CHAIN_EDIT_FORM: ChainEditForm = {
-  proxyName: '',
-  localPort: '',
-  first: { protocol: 'http', server: '', port: '', username: '', password: '' },
-  second: { protocol: 'http', server: '', port: '', username: '', password: '' },
-}
-
-function parseChainSocks5Config(proxyConfig: string): ChainSocksConfig | null {
-  const cfg = proxyConfig.trim()
-  if (!cfg.toLowerCase().startsWith(CHAIN_SOCKS5_PREFIX)) {
-    return null
-  }
-  const encoded = cfg.slice(CHAIN_SOCKS5_PREFIX.length)
-  if (!encoded) {
-    return null
-  }
-
-  const normalizeHop = (raw: unknown): ChainSocksHop | null => {
-    if (!raw || typeof raw !== 'object') return null
-    const hop = raw as Record<string, unknown>
-    const protocol = String(hop.protocol || '').trim().toLowerCase()
-    if (protocol && protocol !== 'socks5' && protocol !== 'http') return null
-
-    const server = String(hop.server || '').trim()
-    if (!server) return null
-
-    const portVal = Number(hop.port || 0)
-    if (!Number.isInteger(portVal) || portVal < 1 || portVal > 65535) return null
-
-    const username = String(hop.username || '').trim()
-    const password = hop.password === undefined || hop.password === null ? '' : String(hop.password)
-    if (password && !username) return null
-
-    return {
-      protocol: protocol === 'http' ? 'http' : 'socks5',
-      server,
-      port: portVal,
-      username: username || undefined,
-      password: password || undefined,
-    }
-  }
-
-  try {
-    const decoded = decodeURIComponent(encoded)
-    const parsed = JSON.parse(decoded) as Record<string, unknown>
-    const first = normalizeHop(parsed.first)
-    const second = normalizeHop(parsed.second)
-    if (!first || !second) return null
-
-    const localPortRaw = parsed.localPort
-    const localPortNum = localPortRaw === undefined || localPortRaw === null || localPortRaw === ''
-      ? 0
-      : Number(localPortRaw)
-    if (!Number.isInteger(localPortNum) || localPortNum < 0 || localPortNum > 65535) return null
-
-    return {
-      first,
-      second,
-      localPort: localPortNum > 0 ? localPortNum : undefined,
-    }
-  } catch {
-    return null
-  }
-}
-
-function toChainEditForm(proxyName: string, cfg: ChainSocksConfig): ChainEditForm {
-  return {
-    proxyName,
-    localPort: cfg.localPort ? String(cfg.localPort) : '',
-    first: {
-      protocol: cfg.first?.protocol || 'socks5',
-      server: cfg.first?.server || '',
-      port: cfg.first?.port ? String(cfg.first.port) : '',
-      username: cfg.first?.username || '',
-      password: cfg.first?.password || '',
-    },
-    second: {
-      protocol: cfg.second?.protocol || 'socks5',
-      server: cfg.second?.server || '',
-      port: cfg.second?.port ? String(cfg.second.port) : '',
-      username: cfg.second?.username || '',
-      password: cfg.second?.password || '',
-    },
-  }
-}
-
-function buildChainProxyConfig(form: ChainEditForm): string {
-  const parseHop = (label: string, hop: ChainHopForm): ChainSocksHop => {
-    const protocol = hop.protocol === 'socks5' ? 'socks5' : 'http'
-    const server = hop.server.trim()
-    if (!server) {
-      throw new Error(`请输入${label}代理地址`)
-    }
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(server)) {
-      throw new Error(`${label}代理地址只需要填写主机名或 IP，不需要协议头`)
-    }
-
-    const portInput = hop.port.trim()
-    if (!portInput) {
-      throw new Error(`请输入${label}代理端口`)
-    }
-    if (!/^\d+$/.test(portInput)) {
-      throw new Error(`${label}代理端口必须为数字`)
-    }
-
-    const port = Number(portInput)
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error(`${label}代理端口必须在 1-65535 之间`)
-    }
-
-    const username = hop.username.trim()
-    const password = hop.password
-    if (password && !username) {
-      throw new Error(`${label}填写密码时请同时填写账号`)
-    }
-
-    return {
-      protocol,
-      server,
-      port,
-      username: username || undefined,
-      password: password || undefined,
-    }
-  }
-
-  const localPortInput = form.localPort.trim()
-  if (localPortInput && !/^\d+$/.test(localPortInput)) {
-    throw new Error('本地监听端口必须为数字')
-  }
-  const localPort = localPortInput ? Number(localPortInput) : 0
-  if (localPortInput && (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535)) {
-    throw new Error('本地监听端口必须在 1-65535 之间')
-  }
-
-  const payload: ChainSocksConfig = {
-    first: parseHop('第一层', form.first),
-    second: parseHop('第二层', form.second),
-    localPort: localPort > 0 ? localPort : undefined,
-  }
-
-  const encodedPayload = encodeURIComponent(JSON.stringify(payload))
-  return `${CHAIN_SOCKS5_PREFIX}${encodedPayload}`
-}
-const ALL_GROUP = '__all__'
-const DIRECT_PROXY_ID = '__direct__'
-const SPEED_RESULT_EVENT = 'proxy:speed:result'
-const BATCH_TEST_CONCURRENCY = 20
-const CHAIN_SOCKS5_PREFIX = 'chain+socks5://'
-
-function formatProxyConfigForDisplay(proxyConfig: string): string {
-  const raw = (proxyConfig || '').trim()
-  if (!raw || !raw.toLowerCase().startsWith(CHAIN_SOCKS5_PREFIX)) {
-    return raw
-  }
-
-  const encoded = raw.slice(CHAIN_SOCKS5_PREFIX.length)
-  if (!encoded) return raw
-
-  try {
-    const decoded = decodeURIComponent(encoded)
-    const parsed = JSON.parse(decoded) as ChainSocksConfig
-    const firstServer = (parsed.first?.server || '').trim()
-    const secondServer = (parsed.second?.server || '').trim()
-    if (!firstServer || !secondServer) return raw
-    return `${firstServer} -> ${secondServer}`
-  } catch {
-    return raw
-  }
-}
-
-
-export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onProxyListUpdated, onProxyDeleted }: ProxyPickerModalProps) {
+export function ProxyPickerModal({ open, currentProxyId, title = '从代理池选择', onSelect, onClose, onProxyListUpdated, onProxyDeleted, onProxyTested }: ProxyPickerModalProps) {
   const [groups, setGroups] = useState<string[]>([])
   const [allProxies, setAllProxies] = useState<BrowserProxy[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>(ALL_GROUP)
@@ -340,10 +143,12 @@ export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onPr
     try {
       const result = await browserProxyTestSpeed(proxyId)
       if (!abortRef.current) {
+        const nextResult = { ok: result.ok, latencyMs: result.latencyMs, error: result.error }
         setSpeedMap(prev => ({
           ...prev,
-          [proxyId]: { ok: result.ok, latencyMs: result.latencyMs, error: result.error },
+          [proxyId]: nextResult,
         }))
+        onProxyTested?.(proxyId, nextResult)
       }
     } finally {
       setTestingIds(prev => {
@@ -364,10 +169,12 @@ export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onPr
 
     const off = EventsOn(SPEED_RESULT_EVENT, (data: { proxyId: string; ok: boolean; latencyMs: number; error: string }) => {
       if (abortRef.current || !idSet.has(data.proxyId)) return
+      const nextResult = { ok: data.ok, latencyMs: data.latencyMs, error: data.error }
       setSpeedMap(prev => ({
         ...prev,
-        [data.proxyId]: { ok: data.ok, latencyMs: data.latencyMs, error: data.error },
+        [data.proxyId]: nextResult,
       }))
+      onProxyTested?.(data.proxyId, nextResult)
       setTestingIds(prev => {
         const next = new Set(prev)
         next.delete(data.proxyId)
@@ -390,7 +197,9 @@ export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onPr
               current.latencyMs !== result.latencyMs ||
               current.error !== result.error
             ) {
-              next[result.proxyId] = { ok: result.ok, latencyMs: result.latencyMs, error: result.error }
+              const nextResult = { ok: result.ok, latencyMs: result.latencyMs, error: result.error }
+              next[result.proxyId] = nextResult
+              onProxyTested?.(result.proxyId, nextResult)
               changed = true
             }
           })
@@ -530,7 +339,7 @@ export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onPr
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
-          <span className="font-semibold text-[var(--color-text-primary)]">从代理池选择</span>
+          <span className="font-semibold text-[var(--color-text-primary)]">{title}</span>
           <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
             <X className="w-4 h-4" />
           </button>
@@ -618,128 +427,24 @@ export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onPr
         onImported={handleImported}
       />
 
-      <Modal
+      <ProxyEditModal
         open={!!editingProxy}
+        chainEditMode={chainEditMode}
+        editName={editName}
+        editConfig={editConfig}
+        editGroup={editGroup}
+        editDnsServers={editDnsServers}
+        chainEditForm={chainEditForm}
+        saving={savingEdit}
+        setEditName={setEditName}
+        setEditConfig={setEditConfig}
+        setEditGroup={setEditGroup}
+        setEditDnsServers={setEditDnsServers}
+        setChainEditForm={setChainEditForm}
+        updateChainHop={updateChainHop}
         onClose={closeEditModal}
-        title="编辑代理"
-        width="520px"
-        footer={
-          <>
-            <Button variant="secondary" onClick={closeEditModal} disabled={savingEdit}>取消</Button>
-            <Button onClick={handleSaveEdit} loading={savingEdit}>保存</Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <FormItem label="代理名称" required>
-            <Input
-              value={chainEditMode ? chainEditForm.proxyName : editName}
-              onChange={e => {
-                if (chainEditMode) {
-                  setChainEditForm(prev => ({ ...prev, proxyName: e.target.value }))
-                } else {
-                  setEditName(e.target.value)
-                }
-              }}
-              placeholder="节点名称"
-            />
-          </FormItem>
-
-          <FormItem label="分组名称（可选）">
-            <Input value={editGroup} onChange={e => setEditGroup(e.target.value)} placeholder="分组名称" />
-          </FormItem>
-
-          {chainEditMode ? (
-            <div className="space-y-3 rounded-md border border-[var(--color-border)] p-3">
-              <FormItem label="本地监听端口（可选）">
-                <Input
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={chainEditForm.localPort}
-                  onChange={e => setChainEditForm(prev => ({ ...prev, localPort: e.target.value }))}
-                  placeholder="留空自动分配"
-                />
-              </FormItem>
-
-              <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
-                <h4 className="text-sm font-medium text-[var(--color-text-primary)]">第一层代理</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <FormItem label="协议">
-                    <Select
-                      value={chainEditForm.first.protocol}
-                      onChange={e => updateChainHop('first', 'protocol', e.target.value)}
-                      options={[
-                        { value: 'http', label: 'HTTP' },
-                        { value: 'socks5', label: 'SOCKS5' },
-                      ]}
-                    />
-                  </FormItem>
-                  <FormItem label="代理地址" required>
-                    <Input value={chainEditForm.first.server} onChange={e => updateChainHop('first', 'server', e.target.value)} />
-                  </FormItem>
-                  <FormItem label="代理端口" required>
-                    <Input type="number" min={1} max={65535} value={chainEditForm.first.port} onChange={e => updateChainHop('first', 'port', e.target.value)} />
-                  </FormItem>
-                  <FormItem label="账号（可选）">
-                    <Input value={chainEditForm.first.username} onChange={e => updateChainHop('first', 'username', e.target.value)} />
-                  </FormItem>
-                  <FormItem label="密码（可选）">
-                    <Input type="password" value={chainEditForm.first.password} onChange={e => updateChainHop('first', 'password', e.target.value)} />
-                  </FormItem>
-                </div>
-              </div>
-
-              <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
-                <h4 className="text-sm font-medium text-[var(--color-text-primary)]">第二层代理</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <FormItem label="协议">
-                    <Select
-                      value={chainEditForm.second.protocol}
-                      onChange={e => updateChainHop('second', 'protocol', e.target.value)}
-                      options={[
-                        { value: 'http', label: 'HTTP' },
-                        { value: 'socks5', label: 'SOCKS5' },
-                      ]}
-                    />
-                  </FormItem>
-                  <FormItem label="代理地址" required>
-                    <Input value={chainEditForm.second.server} onChange={e => updateChainHop('second', 'server', e.target.value)} />
-                  </FormItem>
-                  <FormItem label="代理端口" required>
-                    <Input type="number" min={1} max={65535} value={chainEditForm.second.port} onChange={e => updateChainHop('second', 'port', e.target.value)} />
-                  </FormItem>
-                  <FormItem label="账号（可选）">
-                    <Input value={chainEditForm.second.username} onChange={e => updateChainHop('second', 'username', e.target.value)} />
-                  </FormItem>
-                  <FormItem label="密码（可选）">
-                    <Input type="password" value={chainEditForm.second.password} onChange={e => updateChainHop('second', 'password', e.target.value)} />
-                  </FormItem>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <FormItem label="代理配置" required>
-              <Textarea
-                value={editConfig}
-                onChange={e => setEditConfig(e.target.value)}
-                rows={6}
-                placeholder="支持 http://、https://、socks5://、chain+socks5://"
-              />
-            </FormItem>
-          )}
-
-          <FormItem label="DNS 服务器（可选）">
-            <Textarea
-              value={editDnsServers}
-              onChange={e => setEditDnsServers(e.target.value)}
-              rows={4}
-              placeholder={`dns:\n  enable: true\n  nameserver:\n    - 119.29.29.29\n    - 223.5.5.5`}
-            />
-          </FormItem>
-        </div>
-      </Modal>
-
+        onSave={handleSaveEdit}
+      />
       <ConfirmModal
         open={!!deleteCandidate}
         onClose={() => setDeleteCandidate(null)}
@@ -752,91 +457,5 @@ export function ProxyPickerModal({ open, currentProxyId, onSelect, onClose, onPr
       />
     </div>,
     document.body
-  )
-}
-
-function GroupItem({ label, active, count, onClick }: { label: string; active: boolean; count: number; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors ${
-        active
-          ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-medium'
-          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
-      }`}
-    >
-      <span className="truncate">{label}</span>
-      <span className="text-xs opacity-60 shrink-0">{count}</span>
-    </button>
-  )
-}
-
-interface ProxyRowProps {
-  proxy: BrowserProxy
-  selected: boolean
-  testing: boolean
-  speedResult?: SpeedResult
-  displayConfig: string
-  onSelect: () => void
-  onTest: (e: React.MouseEvent) => void
-  onEdit: (e: React.MouseEvent) => void
-  onDelete: (e: React.MouseEvent) => void
-}
-
-function SpeedBadge({ testing, result }: { testing: boolean; result?: SpeedResult }) {
-  if (testing) return <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--color-text-muted)] shrink-0" />
-  if (!result) return null
-  if (!result.ok) return <span className="text-xs text-red-500 shrink-0">失败</span>
-  const color = result.latencyMs < 200 ? 'text-green-500' : result.latencyMs < 500 ? 'text-yellow-500' : 'text-red-500'
-  return <span className={`text-xs font-medium shrink-0 ${color}`}>{result.latencyMs}ms</span>
-}
-
-function ProxyRow({ proxy, selected, testing, speedResult, displayConfig, onSelect, onTest, onEdit, onDelete }: ProxyRowProps) {
-  const isDirect = proxy.proxyId === DIRECT_PROXY_ID
-  const disableDelete = isDirect
-
-  return (
-    <div
-      onClick={onSelect}
-      className={`w-full px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-colors border-b border-[var(--color-border)]/40 last:border-0 overflow-hidden ${
-        selected ? 'bg-[var(--color-primary)]/10' : 'hover:bg-[var(--color-bg-hover)]'
-      }`}
-    >
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-          {proxy.proxyName || proxy.proxyId}
-          {proxy.groupName && <span className="ml-2 text-xs text-[var(--color-primary)]/70 font-normal">[{proxy.groupName}]</span>}
-        </div>
-        <div className="text-xs text-[var(--color-text-muted)] truncate mt-0.5 w-0 min-w-full">
-          {displayConfig}
-        </div>
-      </div>
-      <SpeedBadge testing={testing} result={speedResult} />
-      <button
-        onClick={onTest}
-        disabled={testing}
-        title="测速"
-        className="shrink-0 p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-40 transition-colors"
-      >
-        <Wifi className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={onEdit}
-        disabled={isDirect}
-        title={isDirect ? '直连不可编辑' : '编辑代理'}
-        className="shrink-0 p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={onDelete}
-        disabled={disableDelete}
-        title={isDirect ? '直连不可删除' : '删除代理'}
-        className="shrink-0 p-1 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-      {selected && <Check className="w-4 h-4 text-[var(--color-primary)] shrink-0" />}
-    </div>
   )
 }

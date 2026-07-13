@@ -1,13 +1,6 @@
 package config
 
-import "strings"
-
 const (
-	DefaultMaxProfileLimit          = 9999
-	StandardCDKeyProfileBonus       = 10
-	GithubStarRewardKey             = "GITHUB_STAR_REWARD"
-	GithubStarProfileBonus          = 50
-	GithubStarProfileTotal          = DefaultMaxProfileLimit + GithubStarProfileBonus
 	DefaultLaunchServerPort         = 19876
 	DefaultLaunchServerAPIKeyHeader = "X-Ant-Api-Key"
 	DefaultAutomationInstallPolicy  = "on_demand"
@@ -21,36 +14,6 @@ const (
 	AutomationNodeSourceSystem  = "system"
 	AutomationNodeSourceBundled = "bundled"
 )
-
-// RewardForUsedKey 返回指定兑换记录对应的永久额度奖励。
-func RewardForUsedKey(key string) int {
-	normalized := strings.ToUpper(strings.TrimSpace(key))
-	if normalized == "" {
-		return 0
-	}
-	if normalized == GithubStarRewardKey {
-		return GithubStarProfileBonus
-	}
-	return StandardCDKeyProfileBonus
-}
-
-// MinimumProfileLimitForUsedKeys 根据兑换记录计算最低应得实例额度。
-func MinimumProfileLimitForUsedKeys(keys []string) int {
-	limit := DefaultMaxProfileLimit
-	seen := make(map[string]struct{}, len(keys))
-	for _, key := range keys {
-		normalized := strings.ToUpper(strings.TrimSpace(key))
-		if normalized == "" {
-			continue
-		}
-		if _, exists := seen[normalized]; exists {
-			continue
-		}
-		seen[normalized] = struct{}{}
-		limit += RewardForUsedKey(normalized)
-	}
-	return limit
-}
 
 // LaunchServerConfig Launch HTTP 服务配置
 type LaunchServerConfig struct {
@@ -71,6 +34,7 @@ type AutomationConfig struct {
 	HeadlessDefault       bool   `yaml:"headless_default,omitempty"`
 	KeepRuntimeOnDisable  bool   `yaml:"keep_runtime_on_disable,omitempty"`
 	AllowTypeScriptBuild  bool   `yaml:"allow_typescript_build,omitempty"`
+	ArtifactsDir          string `yaml:"artifacts_dir,omitempty"`
 	NodeSource            string `yaml:"node_source,omitempty"`
 	SystemNodePath        string `yaml:"system_node_path,omitempty"`
 	NodeVersion           string `yaml:"node_version,omitempty"`
@@ -145,6 +109,7 @@ type BrowserConfig struct {
 	DefaultFingerprintArgs []string               `yaml:"default_fingerprint_args"`
 	DefaultLaunchArgs      []string               `yaml:"default_launch_args"`
 	DefaultStartURLs       []string               `yaml:"default_start_urls"`
+	LightStartEnabled      *bool                  `yaml:"light_start_enabled,omitempty"`
 	RestoreLastSession     bool                   `yaml:"restore_last_session"`
 	StartReadyTimeoutMs    int                    `yaml:"start_ready_timeout_ms,omitempty"`
 	StartStableWindowMs    int                    `yaml:"start_stable_window_ms,omitempty"`
@@ -173,6 +138,7 @@ type BrowserProxy struct {
 	ProxyId                string `yaml:"proxy_id" json:"proxyId"`
 	ProxyName              string `yaml:"proxy_name" json:"proxyName"`
 	ProxyConfig            string `yaml:"proxy_config" json:"proxyConfig"`
+	PreferredKernel        string `yaml:"preferred_kernel,omitempty" json:"preferredKernel,omitempty"`
 	DnsServers             string `yaml:"dns_servers,omitempty" json:"dnsServers,omitempty"`
 	GroupName              string `yaml:"group_name,omitempty" json:"groupName,omitempty"`
 	SortOrder              int    `yaml:"sort_order,omitempty" json:"sortOrder,omitempty"`

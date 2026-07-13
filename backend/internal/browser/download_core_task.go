@@ -17,6 +17,37 @@ import (
 
 // DownloadAndExtractCore 执行异步下载解压并在过程中发送事件
 func (m *Manager) DownloadAndExtractCore(ctx context.Context, coreName string, targetUrl string, proxyConfig string) {
+	coreName = strings.TrimSpace(coreName)
+	for _, core := range m.ListCores() {
+		if strings.EqualFold(core.CoreName, coreName) || filepath.Base(core.CorePath) == coreName {
+			m.downloadAndExtractCore(ctx, CoreInput{
+				CoreId:    core.CoreId,
+				CoreName:  core.CoreName,
+				CorePath:  core.CorePath,
+				IsDefault: core.IsDefault,
+			}, targetUrl, proxyConfig, false)
+			return
+		}
+	}
+	m.downloadAndExtractCore(ctx, CoreInput{CoreName: coreName}, targetUrl, proxyConfig, false)
+}
+
+// RedownloadCore 重新下载指定内核，验证成功后替换原目录并保留原配置。
+func (m *Manager) RedownloadCore(ctx context.Context, coreId string, targetUrl string, proxyConfig string) {
+	core, ok := m.GetCore(coreId)
+	if !ok {
+		runtime.EventsEmit(ctx, "download:progress", DownloadProgress{Phase: "error", Progress: 0, Message: "内核不存在"})
+		return
+	}
+	m.downloadAndExtractCore(ctx, CoreInput{
+		CoreId:    core.CoreId,
+		CoreName:  core.CoreName,
+		CorePath:  core.CorePath,
+		IsDefault: core.IsDefault,
+	}, targetUrl, proxyConfig, true)
+}
+
+func (m *Manager) downloadAndExtractCore(ctx context.Context, coreInput CoreInput, targetUrl string, proxyConfig string, replaceExisting bool) {
 	log := logger.New("Browser")
 	t := time.Now()
 
@@ -30,27 +61,41 @@ func (m *Manager) DownloadAndExtractCore(ctx context.Context, coreName string, t
 
 	sendEvent("downloading", 0, "开始解析地址并创建下载请求: "+targetUrl)
 
-	// 1. 检查名称重复
-	coreName = strings.TrimSpace(coreName)
+	coreName := strings.TrimSpace(coreInput.CoreName)
+	if coreName == "" {
+		sendEvent("error", 0, "内核名称不能为空")
+		return
+	}
+
 	for _, c := range m.ListCores() {
+		if replaceExisting && strings.EqualFold(c.CoreId, strings.TrimSpace(coreInput.CoreId)) {
+			continue
+		}
 		if strings.EqualFold(c.CoreName, coreName) || filepath.Base(c.CorePath) == coreName {
 			sendEvent("error", 0, "名称已存在，请换一个名称")
 			return
 		}
 	}
 
-	// 确保外层 chrome/ 目录存在
-	chromeDir := m.ResolveRelativePath("chrome")
-	if err := os.MkdirAll(chromeDir, 0755); err != nil {
-		sendEvent("error", 0, "创建 chrome 目录失败")
+	targetCorePath := strings.TrimSpace(coreInput.CorePath)
+	if targetCorePath == "" {
+		targetCorePath = filepath.Join("chrome", coreName)
+	}
+	targetDir := m.ResolveRelativePath(targetCorePath)
+	parentDir := filepath.Dir(targetDir)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		sendEvent("error", 0, "创建内核目录失败")
 		return
 	}
 
-	targetDir := filepath.Join(chromeDir, coreName)
-	if _, err := os.Stat(targetDir); !os.IsNotExist(err) {
-		sendEvent("error", 0, "同名文件夹已存在: "+coreName)
+	if _, err := os.Stat(targetDir); err == nil && !replaceExisting {
+		sendEvent("error", 0, "同名内核目录已存在，请改名下载；如需覆盖，请在内核列表使用重新下载")
+		return
+	} else if err != nil && !os.IsNotExist(err) {
+		sendEvent("error", 0, "检查内核目录失败: "+err.Error())
 		return
 	}
+
 	// 2. 准备 HttpClient（优先从 Windows 注册表读取真实系统代理，而非仅靠环境变量）
 	transport := &http.Transport{}
 	if proxyConfig == "__system__" {
@@ -83,7 +128,7 @@ func (m *Manager) DownloadAndExtractCore(ctx context.Context, coreName string, t
 		Transport: transport,
 	}
 
-	tempFile, err := os.CreateTemp(chromeDir, "download_*.zip")
+	tempFile, err := os.CreateTemp(parentDir, coreArchiveTempPattern(targetUrl))
 	if err != nil {
 		sendEvent("error", 0, "创建临时文件失败: "+err.Error())
 		return
@@ -106,32 +151,84 @@ func (m *Manager) DownloadAndExtractCore(ctx context.Context, coreName string, t
 	sendEvent("extracting", 0, "下载完成，正在准备解压文件...")
 	log.Info("内核下载完成", logger.F("url", targetUrl), logger.F("temp", tempFilePath), logger.F("cost", time.Since(t).String()))
 
+	tempExtractDir, err := os.MkdirTemp(parentDir, coreName+"_extract_*")
+	if err != nil {
+		sendEvent("error", 0, "创建临时解压目录失败: "+err.Error())
+		return
+	}
+	cleanupTempExtract := true
+	defer func() {
+		if cleanupTempExtract {
+			os.RemoveAll(tempExtractDir)
+		}
+	}()
+
 	// 3. 执行解压，并剥离顶层文件夹
-	if err := extractZipAndStripRoot(tempFilePath, targetDir, func(p int, msg string) {
+	if err := extractCoreArchiveAndStripRoot(tempFilePath, tempExtractDir, func(p int, msg string) {
 		sendEvent("extracting", p, msg)
 	}); err != nil {
-		os.RemoveAll(targetDir) // 删除不完整的解压文件
 		sendEvent("error", 0, "解压失败: "+err.Error())
 		return
 	}
 
-	// 4. 将新内核配置入库
-	corePath := filepath.Join("chrome", coreName)
-	if m.ValidateCorePath(corePath).Valid {
-		newCore := CoreInput{
-			CoreId:    uuid.NewString(), // 使用固定的 UUID 或生成新的
-			CoreName:  coreName,
-			CorePath:  corePath,
-			IsDefault: len(m.ListCores()) == 0, // 如果没有其他内核，这设为默认
-		}
-		if err := m.SaveCore(newCore); err != nil {
-			sendEvent("error", 0, "保存配置入库失败: "+err.Error())
-			return
-		}
+	if !m.ValidateCorePath(tempExtractDir).Valid {
+		sendEvent("error", 0, fmt.Sprintf("解压后未找到当前平台可用的浏览器可执行文件（当前平台 %s，候选：%s），请检查压缩包内容！", CoreExecutablePlatform(), strings.Join(CoreExecutableCandidates(), ", ")))
+		return
+	}
+
+	if err := replaceCoreDirectory(targetDir, tempExtractDir, replaceExisting); err != nil {
+		sendEvent("error", 0, "替换内核目录失败: "+err.Error())
+		return
+	}
+	cleanupTempExtract = false
+
+	coreToSave := CoreInput{
+		CoreId:    strings.TrimSpace(coreInput.CoreId),
+		CoreName:  coreName,
+		CorePath:  targetCorePath,
+		IsDefault: coreInput.IsDefault,
+	}
+	if coreToSave.CoreId == "" {
+		coreToSave.CoreId = uuid.NewString()
+		coreToSave.IsDefault = len(m.ListCores()) == 0
+	}
+	if err := m.SaveCore(coreToSave); err != nil {
+		sendEvent("error", 0, "保存配置入库失败: "+err.Error())
+		return
+	}
+
+	if replaceExisting && strings.TrimSpace(coreInput.CoreId) != "" {
+		sendEvent("done", 100, "内核重新下载成功！")
+		log.Info("内核重新下载成功", logger.F("core_id", coreToSave.CoreId), logger.F("core_name", coreName))
+	} else {
 		sendEvent("done", 100, "内核下载与配置成功！")
 		log.Info("内核下载配置入库成功", logger.F("core_name", coreName))
-	} else {
-		os.RemoveAll(targetDir) // 删除不正确的解压内容
-		sendEvent("error", 0, fmt.Sprintf("解压后未找到浏览器可执行文件（候选：%s），请检查压缩包内容！", strings.Join(CoreExecutableCandidates(), ", ")))
 	}
+}
+
+func replaceCoreDirectory(targetDir string, tempExtractDir string, replaceExisting bool) error {
+	if !replaceExisting {
+		return os.Rename(tempExtractDir, targetDir)
+	}
+
+	backupDir := targetDir + ".backup_" + time.Now().Format("20060102150405")
+	if _, err := os.Stat(targetDir); err == nil {
+		if err := os.Rename(targetDir, backupDir); err != nil {
+			return err
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if err := os.Rename(tempExtractDir, targetDir); err != nil {
+		if backupDir != "" {
+			_ = os.Rename(backupDir, targetDir)
+		}
+		return err
+	}
+
+	if backupDir != "" {
+		_ = os.RemoveAll(backupDir)
+	}
+	return nil
 }

@@ -1,4 +1,4 @@
-export interface BrowserProfile {
+﻿export interface BrowserProfile {
   profileId: string
   profileName: string
   userDataDir: string
@@ -22,6 +22,7 @@ export interface BrowserProfile {
   lastError: string
   createdAt: string
   updatedAt: string
+  deletedAt?: string
   lastStartAt?: string
   lastStopAt?: string
   launchCode?: string
@@ -40,6 +41,40 @@ export interface BrowserProfileInput {
   groupId?: string
 }
 
+export interface BrowserProfilePackageExportResult {
+  cancelled: boolean
+  zipPath: string
+  profileCount: number
+  fileCount: number
+  message: string
+}
+
+export interface BrowserProfilePackageImportResult {
+  cancelled: boolean
+  importedCount: number
+  profileMappings: Record<string, string>
+  warnings?: string[]
+  message: string
+}
+
+export type BrowserProfileCopyMode = 'auto_fingerprint' | 'regular'
+
+export type BrowserProfileAutomationTarget =
+  | 'seed'
+  | 'identity'
+  | 'locale'
+  | 'screen'
+  | 'hardware'
+  | 'render'
+  | 'fonts'
+  | 'network'
+  | 'devices'
+
+export interface BrowserProfileCopyOptions {
+  mode: BrowserProfileCopyMode
+  automationTargets: BrowserProfileAutomationTarget[]
+}
+
 export interface BrowserTab {
   tabId: string
   title: string
@@ -52,9 +87,12 @@ export interface BrowserSettings {
   defaultFingerprintArgs: string[]
   defaultLaunchArgs: string[]
   defaultStartUrls: string[]
+  lightStartEnabled: boolean
   restoreLastSession: boolean
   startReadyTimeoutMs: number
   startStableWindowMs: number
+  // xray 表示 Xray + sing-box 组合连接栈；mihomo 表示独立 Mihomo 连接栈。
+  defaultConnectorType: 'xray' | 'mihomo' | string
 }
 
 export interface ProxyCheckTarget {
@@ -97,6 +135,7 @@ export interface BrowserProxy {
   proxyId: string
   proxyName: string
   proxyConfig: string
+  preferredKernel?: 'auto' | 'xray' | 'sing-box' | 'mihomo' | string
   dnsServers?: string
   groupName?: string
   sourceId?: string
@@ -128,10 +167,118 @@ export interface ProxyIPHealthResult {
   updatedAt: string
 }
 
+
+export interface ProxyCoreDownloadProgress {
+  core: string
+  goos: string
+  goarch: string
+  phase: string
+  progress: number
+  message: string
+}
+
+export interface ProxyCoreStatusResult {
+  core: string
+  goos: string
+  goarch: string
+  installed: boolean
+  configured: boolean
+  active: boolean
+  binaryPath: string
+  source: string
+  message: string
+}
+
+export interface ProxyCoreDownloadInfoResult {
+  core: string
+  goos: string
+  goarch: string
+  version: string
+  repo: string
+  releaseUrl: string
+  downloadUrl: string
+  assetName: string
+  installDir: string
+  binaryName: string
+  message: string
+}
+
+export interface ProxyBridgeWarmupResult {
+  proxyId: string
+  ok: boolean
+  engine: string
+  socksUrl: string
+  latencyMs: number
+  error: string
+}
+
+export interface ProxySpeedTestResult {
+  proxyId: string
+  ok: boolean
+  latencyMs: number
+  engine?: string
+  error: string
+}
+
+
+export interface ProxyLocationOption {
+  label: string
+  timezone: string
+  lang: string
+}
+
+export interface ProxyLocationResolveResult {
+  proxyId: string
+  ok: boolean
+  auto: boolean
+  source: string
+  error: string
+  ip: string
+  country: string
+  region: string
+  city: string
+  timezone: string
+  lang: string
+  health?: ProxyIPHealthResult
+  alternates?: ProxyLocationOption[]
+  resolvedAt: string
+}
+
 export interface BrowserCoreExtended {
   coreId: string
   chromeVersion: string
   instanceCount: number
+}
+
+export interface BrowserExtension {
+  extensionId: string
+  name: string
+  version: string
+  description: string
+  iconDataUrl: string
+  manifestJson: string
+  sourceUrl: string
+  installDir: string
+  enabled: boolean
+  installedAt: string
+  updatedAt: string
+}
+
+export interface BrowserExtensionLookupResult {
+  extensionId: string
+  name: string
+  version: string
+  description: string
+  storeUrl: string
+  installable: boolean
+  message: string
+}
+
+export interface BrowserProfileExtensionSettings {
+  profileId: string
+  configured: boolean
+  extensionIds: string[]
+  updatedAt: string
 }
 
 export interface CookieInfo {

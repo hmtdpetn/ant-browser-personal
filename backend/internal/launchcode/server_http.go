@@ -9,6 +9,7 @@ func (s *LaunchServer) buildMux() *http.ServeMux {
 	mux.HandleFunc("/api/automation/scripts/", s.handleAutomationScriptByID)
 	mux.HandleFunc("/api/automation/scripts/run", s.handleAutomationScriptRun)
 	mux.HandleFunc("/api/automation/scripts/runs", s.handleAutomationScriptRuns)
+	mux.HandleFunc("/api/automation/hooks/", s.handleAutomationPublicHook)
 	mux.HandleFunc("/api/profiles", s.handleProfiles)
 	mux.HandleFunc("/api/profiles/", s.handleProfileByID)
 	mux.HandleFunc("/api/runtime/active", s.handleRuntimeActive)

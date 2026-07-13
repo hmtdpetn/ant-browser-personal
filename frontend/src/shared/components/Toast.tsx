@@ -1,5 +1,6 @@
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
 import { create } from 'zustand'
+import { useNotificationStore } from '../../store/notificationStore'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -41,11 +42,21 @@ export const useToastStore = create<ToastStore>((set) => ({
 }))
 
 // Toast 工具函数
+function recordErrorNotification(message: string) {
+  useNotificationStore.getState().addNotification({
+    type: 'error',
+    title: '操作异常',
+    message,
+  })
+}
+
 export const toast = {
   success: (message: string, duration?: number) =>
     useToastStore.getState().addToast({ type: 'success', message, duration }),
-  error: (message: string, duration?: number) =>
-    useToastStore.getState().addToast({ type: 'error', message, duration }),
+  error: (message: string, duration?: number) => {
+    useToastStore.getState().addToast({ type: 'error', message, duration })
+    recordErrorNotification(message)
+  },
   warning: (message: string, duration?: number) =>
     useToastStore.getState().addToast({ type: 'warning', message, duration }),
   info: (message: string, duration?: number) =>
