@@ -20,6 +20,7 @@ export interface AutomationSettings {
   headlessDefault: boolean
   keepRuntimeOnDisable: boolean
   allowTypeScriptBuild: boolean
+  artifactsDir: string
   nodeSource: string
   systemNodePath: string
   nodeVersion: string
@@ -70,6 +71,7 @@ export const defaultAutomationState: AutomationState = {
     headlessDefault: false,
     keepRuntimeOnDisable: true,
     allowTypeScriptBuild: false,
+    artifactsDir: 'data/automation/artifacts',
     nodeSource: 'auto',
     systemNodePath: '',
     nodeVersion: '22.15.1',

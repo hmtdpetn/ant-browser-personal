@@ -2,7 +2,6 @@ package browser
 
 import (
 	"ant-chrome/backend/internal/logger"
-	"fmt"
 	"strings"
 	"time"
 
@@ -15,10 +14,6 @@ func (m *Manager) Create(input ProfileInput) (*Profile, error) {
 	m.InitData()
 	m.Mutex.Lock()
 	defer m.Mutex.Unlock()
-
-	if m.Config.App.MaxProfileLimit > 0 && len(m.Profiles) >= m.Config.App.MaxProfileLimit {
-		return nil, fmt.Errorf("实例数量已达上限 (%d个)，无法创建新的实例。请兑换额度后重试！", m.Config.App.MaxProfileLimit)
-	}
 
 	now := time.Now().Format(time.RFC3339)
 	profileId := uuid.NewString()
@@ -83,10 +78,6 @@ func (m *Manager) ensureProfileLaunchCode(profile *Profile) {
 	if code, err := m.CodeProvider.EnsureCode(profile.ProfileId); err == nil {
 		profile.LaunchCode = code
 	}
-}
-
-func newProfileLimitExceededError(limit int, action string) error {
-	return fmt.Errorf("实例数量已达上限 (%d个)，无法%s。请兑换额度后重试！", limit, action)
 }
 
 func buildProfileGroupID(value string) string {

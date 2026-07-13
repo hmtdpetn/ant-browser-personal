@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"ant-chrome/backend/internal/config"
 	"ant-chrome/backend/internal/proxy"
 	"encoding/json"
 	"fmt"
@@ -15,27 +16,37 @@ import (
 // BrowserProxyTestSpeed 手动触发单个代理测速并持久化结果
 func (a *App) BrowserProxyTestSpeed(proxyId string) ProxyTestResult {
 	proxies := a.getLatestProxies()
-	result := proxy.SpeedTest(proxyId, proxies, a.xrayMgr, a.singboxMgr, a.proxySpeedTestConfig())
+	connectorType := a.defaultProxyConnectorType()
+	result := proxy.SpeedTestWithConnector(proxyId, proxies, a.xrayMgr, a.singboxMgr, a.clashMgr, connectorType, a.proxySpeedTestConfig())
 	if a.browserMgr.ProxyDAO != nil {
 		testedAt := time.Now().Format(time.RFC3339)
 		_ = a.browserMgr.ProxyDAO.UpdateSpeedResult(proxyId, result.Ok, result.LatencyMs, testedAt)
 	}
-	return ProxyTestResult{ProxyId: result.ProxyId, Ok: result.Ok, LatencyMs: result.LatencyMs, Error: result.Error}
+	return buildProxyTestResult(result)
 }
 
-// BrowserProxyBatchTestSpeed 批量并发测速，concurrency 控制并发数（默认 20）
+const (
+	defaultProxySpeedConcurrency = 5
+	maxProxySpeedConcurrency     = 10
+)
+
+// BrowserProxyBatchTestSpeed 批量并发测速，concurrency 控制并发数（默认 5，最高 10）。
 func (a *App) BrowserProxyBatchTestSpeed(proxyIds []string, concurrency int) []ProxyTestResult {
 	if len(proxyIds) == 0 {
 		return []ProxyTestResult{}
 	}
 	if concurrency <= 0 {
-		concurrency = 20
+		concurrency = defaultProxySpeedConcurrency
+	}
+	if concurrency > maxProxySpeedConcurrency {
+		concurrency = maxProxySpeedConcurrency
 	}
 	if concurrency > len(proxyIds) {
 		concurrency = len(proxyIds)
 	}
 
 	proxies := a.getLatestProxies()
+	connectorType := a.defaultProxyConnectorType()
 	results := make([]ProxyTestResult, len(proxyIds))
 	type speedJob struct {
 		Idx     int
@@ -49,12 +60,12 @@ func (a *App) BrowserProxyBatchTestSpeed(proxyIds []string, concurrency int) []P
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
-				result := proxy.SpeedTest(job.ProxyId, proxies, a.xrayMgr, a.singboxMgr, a.proxySpeedTestConfig())
+				result := proxy.SpeedTestWithConnector(job.ProxyId, proxies, a.xrayMgr, a.singboxMgr, a.clashMgr, connectorType, a.proxySpeedTestConfig())
 				if a.browserMgr.ProxyDAO != nil {
 					testedAt := time.Now().Format(time.RFC3339)
 					_ = a.browserMgr.ProxyDAO.UpdateSpeedResult(job.ProxyId, result.Ok, result.LatencyMs, testedAt)
 				}
-				item := ProxyTestResult{ProxyId: result.ProxyId, Ok: result.Ok, LatencyMs: result.LatencyMs, Error: result.Error}
+				item := buildProxyTestResult(result)
 				results[job.Idx] = item
 
 				if a.ctx != nil {
@@ -73,10 +84,22 @@ func (a *App) BrowserProxyBatchTestSpeed(proxyIds []string, concurrency int) []P
 	return results
 }
 
+func (a *App) testProxySpeedWithConnector(proxyId string, proxies []BrowserProxy, connectorType string) proxy.TestResult {
+	return proxy.SpeedTestWithConnector(proxyId, proxies, a.xrayMgr, a.singboxMgr, a.clashMgr, config.NormalizeBrowserConnectorType(connectorType), a.proxySpeedTestConfig())
+}
+
+func (a *App) defaultProxyConnectorType() string {
+	if a == nil || a.config == nil {
+		return config.BrowserConnectorXray
+	}
+	return config.NormalizeBrowserConnectorType(a.config.Browser.DefaultConnectorType)
+}
+
 // BrowserProxyCheckIPHealth 检测单个代理的出口 IP 健康信息
 func (a *App) BrowserProxyCheckIPHealth(proxyId string) ProxyIPHealthResult {
 	proxies := a.getLatestProxies()
-	data, err := proxy.FetchIPHealthInfo(proxyId, proxies, a.xrayMgr, a.singboxMgr, a.proxyIPHealthConfig())
+	connectorType := a.defaultProxyConnectorType()
+	data, err := proxy.FetchIPHealthInfo(proxyId, proxies, a.xrayMgr, a.singboxMgr, a.clashMgr, connectorType, a.proxyIPHealthConfig())
 	result := buildProxyIPHealthResult(proxyId, data, err)
 	a.persistProxyIPHealthResult(result)
 	if a.ctx != nil {
@@ -98,6 +121,7 @@ func (a *App) BrowserProxyBatchCheckIPHealth(proxyIds []string, concurrency int)
 	}
 
 	proxies := a.getLatestProxies()
+	connectorType := a.defaultProxyConnectorType()
 	results := make([]ProxyIPHealthResult, len(proxyIds))
 	type healthJob struct {
 		Idx     int
@@ -111,7 +135,7 @@ func (a *App) BrowserProxyBatchCheckIPHealth(proxyIds []string, concurrency int)
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
-				data, err := proxy.FetchIPHealthInfo(job.ProxyId, proxies, a.xrayMgr, a.singboxMgr, a.proxyIPHealthConfig())
+				data, err := proxy.FetchIPHealthInfo(job.ProxyId, proxies, a.xrayMgr, a.singboxMgr, a.clashMgr, connectorType, a.proxyIPHealthConfig())
 				result := buildProxyIPHealthResult(job.ProxyId, data, err)
 				a.persistProxyIPHealthResult(result)
 				results[job.Idx] = result

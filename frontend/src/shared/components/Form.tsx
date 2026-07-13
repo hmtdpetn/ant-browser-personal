@@ -1,8 +1,11 @@
 ﻿import { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import clsx from 'clsx'
 
+const SELECT_CHEVRON_DATA_URI =
+  `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364758b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5.5 7.5 4.5 4.5 4.5-4.5'/%3E%3C/svg%3E")`
+
 interface FormItemProps {
-  label?: string
+  label?: ReactNode
   required?: boolean
   hint?: string
   error?: string
@@ -56,13 +59,15 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   options: { value: string; label: string }[]
 }
 
-export function Select({ error, options, className, ...props }: SelectProps) {
+export function Select({ error, options, className, style, ...props }: SelectProps) {
   return (
     <select
       className={clsx(
-        'block h-9 px-3 text-sm',
+        'block h-9 appearance-none px-3 pr-10 text-sm',
         'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)]',
         'border border-[var(--color-border-default)] rounded-lg',
+        'shadow-[var(--shadow-xs)]',
+        'hover:border-[var(--color-border-strong)]',
         'focus:outline-none focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-border-strong)]',
         'disabled:bg-[var(--color-bg-muted)] disabled:text-[var(--color-text-muted)] disabled:cursor-not-allowed',
         'transition-colors duration-150',
@@ -72,6 +77,13 @@ export function Select({ error, options, className, ...props }: SelectProps) {
         !className?.includes('w-') && 'w-full',
         className
       )}
+      style={{
+        backgroundImage: SELECT_CHEVRON_DATA_URI,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 0.8rem center',
+        backgroundSize: '0.95rem 0.95rem',
+        ...style,
+      }}
       {...props}
     >
       {options.map((opt) => (

@@ -348,3 +348,10 @@ export const FINGERPRINT_PRESETS: FingerprintPreset[] = [
     },
   },
 ]
+
+export function applyLocaleToFingerprintArgs(args: string[], lang: string, timezone: string): string[] {
+  const nextConfig = deserialize(args || [])
+  if (lang) nextConfig.lang = lang
+  if (timezone) nextConfig.timezone = timezone
+  return serialize(nextConfig)
+}

@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+var startBrowserWindowProcess = func(chromeBinaryPath string, args []string) (*exec.Cmd, error) {
+	cmd := exec.Command(chromeBinaryPath, args...)
+	cmd.Dir = filepath.Dir(chromeBinaryPath)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return cmd, nil
+}
+
 func tryCloseBrowserViaCDP(debugPort int, timeout time.Duration) bool {
 	if debugPort <= 0 || !canConnectDebugPort(debugPort, 250*time.Millisecond) {
 		return false
@@ -99,23 +108,8 @@ func browserRestoreLastSession(cfg *config.Config) bool {
 }
 
 func appendLaunchTargets(args []string, startURLs []string, defaultStartURLs []string, skipDefaultStartURLs bool, restoreLastSession bool) []string {
-	normalizedStartURLs := normalizeNonEmptyStrings(startURLs)
-	if len(normalizedStartURLs) > 0 {
-		return browser.BuildLaunchArgs(args, normalizedStartURLs)
-	}
-
-	if !skipDefaultStartURLs {
-		normalizedDefaultStartURLs := normalizeNonEmptyStrings(defaultStartURLs)
-		if len(normalizedDefaultStartURLs) > 0 {
-			return browser.BuildLaunchArgs(args, normalizedDefaultStartURLs)
-		}
-	}
-
-	if !restoreLastSession {
-		return browser.BuildLaunchArgs(args, []string{"about:blank"})
-	}
-
-	return args
+	launchTargets, _ := buildBrowserLaunchTargets(startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession, false)
+	return browser.BuildLaunchArgs(args, launchTargets)
 }
 
 func (a *App) markProfileStoppedLocked(profileId string, profile *BrowserProfile) {
@@ -129,7 +123,8 @@ func (a *App) markProfileStoppedLocked(profileId string, profile *BrowserProfile
 	profile.RuntimeWarning = ""
 	profile.LastStopAt = time.Now().Format(time.RFC3339)
 	delete(a.browserMgr.BrowserProcesses, profileId)
-	a.releaseProfileXrayBridge(profileId)
+	a.clearDeferredStartTargets(profileId)
+	a.releaseProfileProxyBridge(profileId)
 	if a.launchServer != nil {
 		a.launchServer.ClearActiveProfile(profileId)
 	}
@@ -158,14 +153,39 @@ func (a *App) openBrowserWindowForRunningProfile(profile *BrowserProfile, extraL
 		args = append(args, "about:blank")
 	}
 
-	cmd := exec.Command(chromeBinaryPath, args...)
-	cmd.Dir = filepath.Dir(chromeBinaryPath)
-	if err := cmd.Start(); err != nil {
+	cmd, err := startBrowserWindowProcess(chromeBinaryPath, args)
+	if err != nil {
 		return fmt.Errorf("%s", describeChromeProcessStartError(chromeBinaryPath, err))
 	}
 
-	go func() {
-		_ = cmd.Wait()
-	}()
+	if cmd != nil {
+		go func() {
+			_ = cmd.Wait()
+		}()
+	}
 	return nil
+}
+
+func (a *App) openBrowserTabForRunningProfile(profile *BrowserProfile, extraLaunchArgs []string, startURLs []string) error {
+	explicitTargets := normalizeNonEmptyStrings(startURLs)
+	targets := explicitTargets
+	if len(targets) == 0 {
+		targets = []string{"about:blank"}
+	}
+	if profile != nil && profile.DebugReady && profile.DebugPort > 0 {
+		for _, target := range targets {
+			if err := createBrowserStartTarget(profile.DebugPort, target); err != nil {
+				if len(explicitTargets) == 0 && len(normalizeNonEmptyStrings(extraLaunchArgs)) == 0 {
+					return nil
+				}
+				return err
+			}
+		}
+		return nil
+	}
+	err := a.openBrowserWindowForRunningProfile(profile, extraLaunchArgs, targets)
+	if err != nil && len(explicitTargets) == 0 && len(normalizeNonEmptyStrings(extraLaunchArgs)) == 0 {
+		return nil
+	}
+	return err
 }

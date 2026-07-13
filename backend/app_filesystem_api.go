@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"ant-chrome/backend/internal/fsutil"
 	"ant-chrome/backend/internal/logger"
 	"fmt"
 	"os"
@@ -14,21 +15,13 @@ import (
 func (a *App) OpenUserDataDir(userDataDir string) error {
 	log := logger.New("Browser")
 
-	userDataDir = strings.TrimSpace(userDataDir)
-	if userDataDir == "" {
-		return fmt.Errorf("用户数据目录不能为空")
+	userDataRoot := ""
+	if a.config != nil {
+		userDataRoot = a.config.Browser.UserDataRoot
 	}
-
-	var fullPath string
-	if filepath.IsAbs(userDataDir) {
-		fullPath = userDataDir
-	} else {
-		root := strings.TrimSpace(a.config.Browser.UserDataRoot)
-		if root == "" {
-			root = "data"
-		}
-		root = a.resolveAppPath(root)
-		fullPath = filepath.Join(root, userDataDir)
+	fullPath, err := fsutil.ResolveUserDataDir(a.resolveAppPath, userDataRoot, userDataDir)
+	if err != nil {
+		return err
 	}
 
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -57,16 +50,9 @@ func (a *App) OpenUserDataDir(userDataDir string) error {
 func (a *App) OpenCorePath(corePath string) error {
 	log := logger.New("Browser")
 
-	corePath = strings.TrimSpace(corePath)
-	if corePath == "" {
-		return fmt.Errorf("内核路径不能为空")
-	}
-
-	var fullPath string
-	if filepath.IsAbs(corePath) {
-		fullPath = corePath
-	} else {
-		fullPath = a.resolveAppPath(corePath)
+	fullPath, err := fsutil.ResolveExistingPath(a.resolveAppPath, corePath, "内核路径不能为空")
+	if err != nil {
+		return err
 	}
 
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {

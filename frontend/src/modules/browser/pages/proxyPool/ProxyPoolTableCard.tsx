@@ -13,6 +13,7 @@ interface ProxyPoolTableCardProps {
   filterGroup: string
   filterKeyword: string
   filterProtocol: string
+  filterAvailableOnly: boolean
   globalAutoRefreshEnabled: boolean
   globalRefreshInterval: number
   globalRefreshIntervalM: string
@@ -26,6 +27,7 @@ interface ProxyPoolTableCardProps {
   onFilterGroupChange: (nextValue: string) => void
   onFilterKeywordChange: (nextValue: string) => void
   onFilterProtocolChange: (nextValue: string) => void
+  onFilterAvailableOnlyChange: (checked: boolean) => void
   onGlobalAutoRefreshEnabledChange: (checked: boolean) => void
   onGlobalRefreshIntervalMChange: (nextValue: string) => void
   onOpenBatchDelete: () => void
@@ -35,6 +37,8 @@ interface ProxyPoolTableCardProps {
   onTestOne: (record: ProxyDisplayInfo) => void
   onToggleAll: () => void
   onToggleOne: (proxyId: string) => void
+  onWarmupOne: (record: ProxyDisplayInfo) => void
+  onWarmupSelected: () => void
   protocolOptions: string[]
   refreshingSourceIds: Set<string>
   selectedCount: number
@@ -43,6 +47,10 @@ interface ProxyPoolTableCardProps {
   sortColumn: string
   sortOrder: SortOrder
   latencyMap: Record<string, number>
+  latencyEngineMap: Record<string, string>
+  latencyErrorMap: Record<string, string>
+  warmingBridgeIds: Set<string>
+  warmingAllBridges: boolean
 }
 
 export function ProxyPoolTableCard({
@@ -52,6 +60,7 @@ export function ProxyPoolTableCard({
   filterGroup,
   filterKeyword,
   filterProtocol,
+  filterAvailableOnly,
   globalAutoRefreshEnabled,
   globalRefreshInterval,
   globalRefreshIntervalM,
@@ -65,6 +74,7 @@ export function ProxyPoolTableCard({
   onFilterGroupChange,
   onFilterKeywordChange,
   onFilterProtocolChange,
+  onFilterAvailableOnlyChange,
   onGlobalAutoRefreshEnabledChange,
   onGlobalRefreshIntervalMChange,
   onOpenBatchDelete,
@@ -74,6 +84,8 @@ export function ProxyPoolTableCard({
   onTestOne,
   onToggleAll,
   onToggleOne,
+  onWarmupOne,
+  onWarmupSelected,
   protocolOptions,
   refreshingSourceIds,
   selectedCount,
@@ -82,8 +94,12 @@ export function ProxyPoolTableCard({
   sortColumn,
   sortOrder,
   latencyMap,
+  latencyEngineMap,
+  latencyErrorMap,
+  warmingBridgeIds,
+  warmingAllBridges,
 }: ProxyPoolTableCardProps) {
-  const hasActiveFilters = filterProtocol !== 'all' || !!filterKeyword || filterGroup !== 'all'
+  const hasActiveFilters = filterProtocol !== 'all' || !!filterKeyword || filterGroup !== 'all' || filterAvailableOnly
 
   const renderLatency = (record: ProxyDisplayInfo) => {
     if (record.proxyConfig === 'direct://') {
@@ -92,11 +108,24 @@ export function ProxyPoolTableCard({
     const value = latencyMap[record.proxyId]
     if (value === undefined) return <span className="text-[var(--color-text-muted)] text-xs">-</span>
     if (value === -1) return <span className="text-[var(--color-text-muted)] text-xs animate-pulse">测试中...</span>
-    if (value === -2) return <span className="text-red-500 text-xs">超时</span>
-    if (value === -3) return <span className="text-gray-400 text-xs">不支持</span>
-    if (value === -4) return <span className="text-red-500 text-xs">失败</span>
+    const error = latencyErrorMap[record.proxyId] || ''
+    if (value === -2) return <span className="text-red-500 text-xs" title={error || '测速超时'}>超时</span>
+    if (value === -3) return <span className="text-gray-400 text-xs" title={error || '协议不支持'}>不支持</span>
+    if (value === -4) return <span className="text-red-500 text-xs" title={error || '测速失败'}>失败</span>
     const color = value < 200 ? 'text-green-500' : value < 500 ? 'text-yellow-500' : 'text-red-500'
     return <span className={`text-xs font-medium ${color}`}>{value} ms</span>
+  }
+
+  const renderLatencyEngine = (record: ProxyDisplayInfo) => {
+    if (record.proxyConfig === 'direct://') {
+      return <span className="text-[var(--color-text-muted)] text-xs">不适用</span>
+    }
+    const value = latencyMap[record.proxyId]
+    if (value === undefined) return <span className="text-[var(--color-text-muted)] text-xs">-</span>
+    if (value === -1) return <span className="text-[var(--color-text-muted)] text-xs animate-pulse">-</span>
+    return latencyEngineMap[record.proxyId]
+      ? <span className="text-xs text-[var(--color-text-secondary)] whitespace-nowrap">{latencyEngineMap[record.proxyId]}</span>
+      : <span className="text-[var(--color-text-muted)] text-xs">-</span>
   }
 
   const renderIPHealth = (record: ProxyDisplayInfo) => {
@@ -184,6 +213,12 @@ export function ProxyPoolTableCard({
       render: (_, record) => renderLatency(record),
     },
     {
+      key: 'latencyEngine',
+      title: '测速类型',
+      width: '90px',
+      render: (_, record) => renderLatencyEngine(record),
+    },
+    {
       key: 'ipHealth',
       title: (
         <div className="leading-tight">
@@ -199,7 +234,7 @@ export function ProxyPoolTableCard({
     {
       key: 'actions',
       title: '操作',
-      width: '320px',
+      width: '380px',
       render: (_, record) => {
         const isBuiltin = BUILTIN_PROXY_IDS.has(record.proxyId)
         const sourceId = record.sourceId || ''
@@ -216,6 +251,15 @@ export function ProxyPoolTableCard({
                 刷新订阅
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(event) => { event.stopPropagation(); onWarmupOne(record) }}
+              loading={warmingBridgeIds.has(record.proxyId)}
+              disabled={record.proxyConfig === 'direct://'}
+            >
+              预热
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -268,6 +312,7 @@ export function ProxyPoolTableCard({
     globalRefreshInterval,
     ipHealthMap,
     latencyMap,
+    latencyEngineMap,
     onCheckOneIPHealth,
     onDelete,
     onEdit,
@@ -275,8 +320,10 @@ export function ProxyPoolTableCard({
     onRefreshSingleSource,
     onTestOne,
     onToggleOne,
+    onWarmupOne,
     refreshingSourceIds,
     selectedIds,
+    warmingBridgeIds,
   ])
 
   return (
@@ -308,6 +355,15 @@ export function ProxyPoolTableCard({
         {hasActiveFilters && (
           <Button size="sm" variant="ghost" onClick={onClearFilters}>清除筛选</Button>
         )}
+        <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={filterAvailableOnly}
+            onChange={event => onFilterAvailableOnlyChange(event.target.checked)}
+            className="w-4 h-4 rounded border-[var(--color-border-default)] accent-[var(--color-accent)] cursor-pointer"
+          />
+          只展示可用
+        </label>
         <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 py-1.5">
           <span className="text-xs text-[var(--color-text-muted)]">全局自动刷新</span>
           <Switch
@@ -343,9 +399,14 @@ export function ProxyPoolTableCard({
           </label>
         )}
         {selectedCount > 0 && (
-          <Button size="sm" variant="danger" onClick={onOpenBatchDelete}>
-            删除所选 ({selectedCount})
-          </Button>
+          <>
+            <Button size="sm" variant="secondary" onClick={onWarmupSelected} loading={warmingAllBridges}>
+              预热所选 ({selectedCount})
+            </Button>
+            <Button size="sm" variant="danger" onClick={onOpenBatchDelete}>
+              删除所选 ({selectedCount})
+            </Button>
+          </>
         )}
       </div>
       <Table

@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FolderOpen, Layers, Plus } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
-import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup } from '../types'
-import { createBrowserProfile, createGroup, fetchAllTags, fetchBrowserCores, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
+import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup, ProxyLocationResolveResult } from '../types'
+import { browserProxyResolveLocation, createBrowserProfile, createGroup, fetchAllTags, fetchBrowserCores, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
 import { FingerprintPanel } from '../components/FingerprintPanel'
+import { applyLocaleToFingerprintArgs } from '../utils/fingerprintSerializer'
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
@@ -77,6 +78,8 @@ export function BrowserEditPage() {
   const [isDirty, setIsDirty] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [locationResolving, setLocationResolving] = useState(false)
+  const [locationResult, setLocationResult] = useState<ProxyLocationResolveResult | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -134,30 +137,27 @@ export function BrowserEditPage() {
     })
   }
 
-  // 快速新建分组：创建成功后刷新分组列表并自动选中
   const handleQuickCreateGroup = async () => {
     const name = newGroupName.trim()
     if (!name) return
     setCreatingGroup(true)
     try {
-      const maxSort = groups.reduce((max, g) => Math.max(max, g.sortOrder), 0)
+      const maxSort = groups.reduce((max, group) => Math.max(max, group.sortOrder), 0)
       const created = await createGroup({ groupName: name, parentId: '', sortOrder: maxSort + 1 })
-      const list = await fetchGroups()
-      setGroups(list)
+      setGroups(await fetchGroups())
       if (created?.groupId) {
         handleChange('groupId', created.groupId)
       }
       setNewGroupName('')
       setShowNewGroup(false)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '创建分组失败')
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : '创建分组失败')
     } finally {
       setCreatingGroup(false)
     }
   }
 
   const handleSave = async () => {
-    setSaving(true)
     const resolvedProxyId = (formData.proxyId || '').trim()
     const resolvedProxyConfig = (formData.proxyConfig || '').trim()
     const payload: BrowserProfileInput = {
@@ -173,6 +173,8 @@ export function BrowserEditPage() {
         payload.proxyId = directProxyID
       }
     }
+
+    setSaving(true)
     try {
       if (isCreate) {
         await createBrowserProfile(payload)
@@ -192,6 +194,30 @@ export function BrowserEditPage() {
 
   const handleBack = () => {
     if (isDirty) { setLeaveConfirm(true) } else { navigate('/browser/list') }
+  }
+
+  const handleApplyProxyLocation = async () => {
+    if (!formData.proxyId || formData.proxyId === directProxyID) {
+      toast.error('请选择代理池中的非直连节点')
+      return
+    }
+    setLocationResolving(true)
+    setLocationResult(null)
+    try {
+      const result = await browserProxyResolveLocation(formData.proxyId)
+      setLocationResult(result)
+      if (!result.ok || !result.lang || !result.timezone) {
+        toast.error(result.error || '无法根据代理 IP 匹配定位')
+        return
+      }
+      const nextArgs = applyLocaleToFingerprintArgs(formData.fingerprintArgs, result.lang, result.timezone)
+      handleChange('fingerprintArgs', nextArgs)
+      toast.success(`已设置 ${result.lang} / ${result.timezone}`)
+    } catch (error: unknown) {
+      toast.error((error as Error)?.message || '代理定位失败')
+    } finally {
+      setLocationResolving(false)
+    }
   }
 
   const defaultCore = cores.find(c => c.isDefault)
@@ -303,8 +329,13 @@ export function BrowserEditPage() {
               <div className="flex items-center gap-2 mt-2">
                 <Input
                   value={newGroupName}
-                  onChange={e => setNewGroupName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleQuickCreateGroup() } }}
+                  onChange={event => setNewGroupName(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void handleQuickCreateGroup()
+                    }
+                  }}
                   placeholder="新分组名称"
                   className="flex-1"
                   autoFocus
@@ -332,13 +363,13 @@ export function BrowserEditPage() {
             <div className="flex gap-2">
               <Select
                 value={formData.proxyId}
-                onChange={e => handleChange('proxyId', e.target.value)}
+                onChange={event => { handleChange('proxyId', event.target.value); setLocationResult(null) }}
                 options={
                   proxies.length > 0 ? [
                     ...(formData.proxyId === '' && formData.proxyConfig
                       ? [{ value: '', label: '接口自定义代理（保持原值）' }]
                       : []),
-                    ...proxies.map(p => ({ value: p.proxyId, label: p.proxyName || p.proxyId })),
+                    ...proxies.map(proxy => ({ value: proxy.proxyId, label: proxy.proxyName || proxy.proxyId })),
                   ] : [{ value: '', label: '暂无代理，请先到代理池创建' }]
                 }
                 className="flex-1"
@@ -346,7 +377,23 @@ export function BrowserEditPage() {
               <Button variant="secondary" size="sm" onClick={() => setProxyPickerOpen(true)} title="按分组选择代理">
                 <Layers className="w-4 h-4" />
               </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleApplyProxyLocation}
+                loading={locationResolving}
+                disabled={!formData.proxyId || formData.proxyId === directProxyID}
+              >
+                按代理匹配定位
+              </Button>
             </div>
+            {locationResult && (
+              <div className="mt-2 text-xs text-[var(--color-text-muted)]">
+                {locationResult.ok
+                  ? `出口 ${locationResult.ip || '-'} · ${[locationResult.country, locationResult.region, locationResult.city].filter(Boolean).join(' / ') || '-'} · ${locationResult.lang} · ${locationResult.timezone}`
+                  : locationResult.error || '未匹配到定位'}
+              </div>
+            )}
           </FormItem>
         </div>
         <p className="text-xs text-[var(--color-text-muted)] mt-2">
@@ -358,7 +405,7 @@ export function BrowserEditPage() {
       <ProxyPickerModal
         open={proxyPickerOpen}
         currentProxyId={formData.proxyId}
-        onSelect={proxy => handleChange('proxyId', proxy.proxyId)}
+        onSelect={proxy => { handleChange('proxyId', proxy.proxyId); setLocationResult(null) }}
         onProxyListUpdated={handleProxyListUpdated}
         onProxyDeleted={handleProxyDeleted}
         onClose={() => setProxyPickerOpen(false)}

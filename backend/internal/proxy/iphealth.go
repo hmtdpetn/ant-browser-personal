@@ -29,7 +29,7 @@ func FetchDefaultIPHealthInfo(
 	xrayMgr *XrayManager,
 	singboxMgr *SingBoxManager,
 ) (map[string]interface{}, error) {
-	return FetchIPHealthInfo(proxyId, proxies, xrayMgr, singboxMgr, nil)
+	return FetchIPHealthInfo(proxyId, proxies, xrayMgr, singboxMgr, nil, config.BrowserConnectorXray, nil)
 }
 
 func FetchIPHealthInfo(
@@ -37,6 +37,8 @@ func FetchIPHealthInfo(
 	proxies []config.BrowserProxy,
 	xrayMgr *XrayManager,
 	singboxMgr *SingBoxManager,
+	clashMgr *ClashManager,
+	connectorType string,
 	cfg *IPHealthConfig,
 ) (map[string]interface{}, error) {
 	if cfg == nil {
@@ -68,7 +70,7 @@ func FetchIPHealthInfo(
 		return meta, fmt.Errorf("未找到代理配置")
 	}
 
-	client, err := buildIPHealthHTTPClient(src, proxyId, proxies, xrayMgr, singboxMgr, timeout)
+	client, err := buildIPHealthHTTPClient(src, proxyId, proxies, xrayMgr, singboxMgr, clashMgr, connectorType, timeout)
 	if err != nil {
 		meta["error"] = err.Error()
 		return meta, fmt.Errorf("创建 IP 健康检测客户端失败（source=%s）: %w", source, err)
@@ -157,9 +159,11 @@ func buildIPHealthHTTPClient(
 	proxies []config.BrowserProxy,
 	xrayMgr *XrayManager,
 	singboxMgr *SingBoxManager,
+	clashMgr *ClashManager,
+	connectorType string,
 	timeout time.Duration,
 ) (*http.Client, error) {
-	return buildProxyHTTPClient(src, proxyId, proxies, xrayMgr, singboxMgr, timeout)
+	return buildProxyHTTPClient(src, proxyId, proxies, xrayMgr, singboxMgr, clashMgr, connectorType, timeout)
 }
 
 func resolveIPHealthSource(cfg *IPHealthConfig, targetURL string) string {

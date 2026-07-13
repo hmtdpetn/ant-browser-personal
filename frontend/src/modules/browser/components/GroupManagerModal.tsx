@@ -15,16 +15,15 @@ interface FlatGroup extends BrowserGroupWithCount {
   level: number
 }
 
-// 将分组列表扁平化并计算层级（与 GroupSelector 一致的展示顺序）
 function flattenGroups(groups: BrowserGroupWithCount[]): FlatGroup[] {
   const result: FlatGroup[] = []
   const addChildren = (parentId: string, level: number) => {
     groups
-      .filter(g => g.parentId === parentId)
+      .filter(group => group.parentId === parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .forEach(g => {
-        result.push({ ...g, level })
-        addChildren(g.groupId, level + 1)
+      .forEach(group => {
+        result.push({ ...group, level })
+        addChildren(group.groupId, level + 1)
       })
   }
   addChildren('', 0)
@@ -43,7 +42,7 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
   const flatGroups = useMemo(() => flattenGroups(groups), [groups])
   const groupNameById = useMemo(() => {
     const map = new Map<string, string>()
-    groups.forEach(g => map.set(g.groupId, g.groupName))
+    groups.forEach(group => map.set(group.groupId, group.groupName))
     return map
   }, [groups])
 
@@ -61,14 +60,13 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
     setBusy(true)
     setError('')
     try {
-      // sortOrder 默认取当前最大值 + 1，保证新分组排在末尾
-      const maxSort = groups.reduce((max, g) => Math.max(max, g.sortOrder), 0)
+      const maxSort = groups.reduce((max, group) => Math.max(max, group.sortOrder), 0)
       const input: BrowserGroupInput = { groupName: name, parentId: newParentId, sortOrder: maxSort + 1 }
       await createGroup(input)
       resetCreate()
       onChanged()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '创建分组失败')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '创建分组失败')
     } finally {
       setBusy(false)
     }
@@ -94,19 +92,17 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
     setBusy(true)
     setError('')
     try {
-      // 仅修改名称，保留原有父级与排序
       const input: BrowserGroupInput = { groupName: name, parentId: group.parentId, sortOrder: group.sortOrder }
       await updateGroup(group.groupId, input)
       cancelEdit()
       onChanged()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '更新分组失败')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '更新分组失败')
     } finally {
       setBusy(false)
     }
   }
 
-  // 删除确认文案：后端删除是级联安全的（子分组与实例移到父级；根级分组则变为未分组）
   const buildDeleteMessage = (group: BrowserGroupWithCount) => {
     const hasParent = group.parentId && groupNameById.has(group.parentId)
     const destination = hasParent ? `上级分组「${groupNameById.get(group.parentId)}」` : '未分组'
@@ -122,20 +118,19 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
     try {
       await deleteGroup(group.groupId)
       onChanged()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '删除分组失败'
-      setError(msg)
-      toast.error(msg)
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : '删除分组失败'
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
   }
 
-  // 新建时父分组选项（含根级）
   const parentOptions = useMemo(
     () => [
       { value: '', label: '根级分组' },
-      ...flatGroups.map(g => ({ value: g.groupId, label: `${'　'.repeat(g.level)}${g.groupName}` })),
+      ...flatGroups.map(group => ({ value: group.groupId, label: `${'　'.repeat(group.level)}${group.groupName}` })),
     ],
     [flatGroups]
   )
@@ -149,7 +144,6 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
       footer={<Button variant="secondary" onClick={onClose}>关闭</Button>}
     >
       <div className="space-y-4">
-        {/* 分组列表 */}
         <div className="rounded-lg border border-[var(--color-border-default)] divide-y divide-[var(--color-border-muted)]">
           {flatGroups.length === 0 && (
             <div className="px-3 py-6 text-center text-sm text-[var(--color-text-muted)]">
@@ -162,7 +156,7 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
                 <>
                   <Input
                     value={editingName}
-                    onChange={e => setEditingName(e.target.value)}
+                    onChange={event => setEditingName(event.target.value)}
                     placeholder="分组名称"
                     className="flex-1"
                     autoFocus
@@ -196,21 +190,20 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
           ))}
         </div>
 
-        {/* 新建分组 */}
         <div className="space-y-2 rounded-lg border border-[var(--color-border-default)] p-3">
           <div className="text-sm font-medium text-[var(--color-text-primary)]">新建分组</div>
           <div className="flex items-center gap-2 flex-wrap">
             <Input
               value={newName}
-              onChange={e => setNewName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') void handleCreate() }}
+              onChange={event => setNewName(event.target.value)}
+              onKeyDown={event => { if (event.key === 'Enter') void handleCreate() }}
               placeholder="分组名称"
               className="flex-1 min-w-[160px]"
             />
             {flatGroups.length > 0 && (
               <Select
                 value={newParentId}
-                onChange={e => setNewParentId(e.target.value)}
+                onChange={event => setNewParentId(event.target.value)}
                 options={parentOptions}
                 style={{ width: '160px' }}
               />
@@ -227,7 +220,7 @@ export function GroupManagerModal({ open, onClose, groups, onChanged }: GroupMan
       <ConfirmModal
         open={pendingDelete !== null}
         onClose={() => setPendingDelete(null)}
-        onConfirm={() => { const g = pendingDelete; if (g) void performDelete(g) }}
+        onConfirm={() => { const group = pendingDelete; if (group) void performDelete(group) }}
         title="删除分组"
         content={pendingDelete ? buildDeleteMessage(pendingDelete) : ''}
         confirmText="删除"

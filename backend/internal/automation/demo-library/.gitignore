@@ -1,0 +1,11 @@
+*
+!.gitignore
+!README.md
+!dual-instance-runtime-switch/
+!dual-instance-runtime-switch/**
+!news-query-txt/
+!news-query-txt/**
+!proton-mail-first-message/
+!proton-mail-first-message/**
+!web-image-generate-download/
+!web-image-generate-download/**

@@ -47,8 +47,15 @@ async function clearLogs() {
 export function BrowserLogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [levelFilter, setLevelFilter] = useState('ALL')
+  const [componentFilter, setComponentFilter] = useState('ALL')
+  const [methodFilter, setMethodFilter] = useState('ALL')
   const [keyword, setKeyword] = useState('')
-  const [autoScroll, setAutoScroll] = useState(true)
+  const [fieldKeyword, setFieldKeyword] = useState('')
+  const [quickFilter, setQuickFilter] = useState('ALL')
+  const [durationMin, setDurationMin] = useState('')
+  const [timeFrom, setTimeFrom] = useState('')
+  const [timeTo, setTimeTo] = useState('')
+  const [autoScroll, setAutoScroll] = useState(false)
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -81,10 +88,40 @@ export function BrowserLogsPage() {
 
   const filtered = logs.filter(entry => {
     if (levelFilter !== 'ALL' && entry.level !== levelFilter) return false
-    if (keyword && !entry.message.toLowerCase().includes(keyword.toLowerCase()) &&
-        !entry.component.toLowerCase().includes(keyword.toLowerCase())) return false
+    if (componentFilter !== 'ALL' && entry.component !== componentFilter) return false
+    const method = String(entry.fields?.method || '')
+    const duration = Number(entry.fields?.duration_ms || entry.fields?.durationMs || 0)
+    if (methodFilter !== 'ALL' && method !== methodFilter) return false
+    if (quickFilter === 'ERRORS' && entry.level !== 'ERROR') return false
+    if (quickFilter === 'SLOW' && duration < 1000) return false
+    if (quickFilter === 'FRONTEND' && entry.component !== 'Frontend') return false
+    if (quickFilter === 'BACKEND' && entry.component === 'Frontend') return false
+    if (durationMin && duration < Number(durationMin)) return false
+    if (timeFrom && entry.time < timeFrom.replace('T', ' ')) return false
+    if (timeTo && entry.time > timeTo.replace('T', ' ')) return false
+    const fieldText = entry.fields ? JSON.stringify(entry.fields).toLowerCase() : ''
+    const q = keyword.trim().toLowerCase()
+    if (q && !entry.message.toLowerCase().includes(q) &&
+        !entry.component.toLowerCase().includes(q) &&
+        !method.toLowerCase().includes(q) &&
+        !fieldText.includes(q)) return false
+    const fq = fieldKeyword.trim().toLowerCase()
+    if (fq && !fieldText.includes(fq)) return false
     return true
   })
+  const components = Array.from(new Set(logs.map(entry => entry.component).filter(Boolean))).sort()
+  const methods = Array.from(new Set(logs.map(entry => String(entry.fields?.method || '')).filter(Boolean))).sort()
+  const resetFilters = () => {
+    setLevelFilter('ALL')
+    setComponentFilter('ALL')
+    setMethodFilter('ALL')
+    setQuickFilter('ALL')
+    setKeyword('')
+    setFieldKeyword('')
+    setDurationMin('')
+    setTimeFrom('')
+    setTimeTo('')
+  }
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -103,10 +140,8 @@ export function BrowserLogsPage() {
         </div>
       </div>
 
-      {/* 工具栏 */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* 级别过滤 */}
-        <div className="flex gap-1">
+      <div className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-3">
+        <div className="flex flex-wrap items-center gap-2">
           {LEVELS.map(l => (
             <button
               key={l}
@@ -120,28 +155,100 @@ export function BrowserLogsPage() {
               {l}
             </button>
           ))}
+
+          {[
+            ['ALL', '全部'],
+            ['ERRORS', '只看异常'],
+            ['SLOW', '慢调用'],
+            ['FRONTEND', '前端操作'],
+            ['BACKEND', '后端组件'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setQuickFilter(value)}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                quickFilter === value
+                  ? 'bg-[var(--color-text-primary)] text-white'
+                  : 'bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+
+          <span className="ml-auto text-xs text-[var(--color-text-muted)]">
+            {filtered.length} / {logs.length} 条
+          </span>
         </div>
 
-        <input
-          value={keyword}
-          onChange={e => setKeyword(e.target.value)}
-          placeholder="搜索消息或组件..."
-          className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] w-48"
-        />
-
-        <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none ml-auto">
+        <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-6">
           <input
-            type="checkbox"
-            checked={autoScroll}
-            onChange={e => setAutoScroll(e.target.checked)}
-            className="w-3.5 h-3.5"
+            value={keyword}
+            onChange={e => setKeyword(e.target.value)}
+            placeholder="搜索消息 / 组件 / 方法"
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] lg:col-span-2"
           />
-          自动滚动
-        </label>
+          <input
+            value={fieldKeyword}
+            onChange={e => setFieldKeyword(e.target.value)}
+            placeholder="搜索字段"
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          />
+          <select
+            value={componentFilter}
+            onChange={e => setComponentFilter(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          >
+            <option value="ALL">全部组件</option>
+            {components.map(component => (
+              <option key={component} value={component}>{component}</option>
+            ))}
+          </select>
+          <select
+            value={methodFilter}
+            onChange={e => setMethodFilter(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          >
+            <option value="ALL">全部方法</option>
+            {methods.map(method => (
+              <option key={method} value={method}>{method}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min="0"
+            value={durationMin}
+            onChange={e => setDurationMin(e.target.value)}
+            placeholder="最小耗时 ms"
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          />
+        </div>
 
-        <span className="text-xs text-[var(--color-text-muted)]">
-          {filtered.length} / {logs.length} 条
-        </span>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="datetime-local"
+            value={timeFrom}
+            onChange={e => setTimeFrom(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          />
+          <span className="text-xs text-[var(--color-text-muted)]">到</span>
+          <input
+            type="datetime-local"
+            value={timeTo}
+            onChange={e => setTimeTo(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          />
+          <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={autoScroll}
+              onChange={e => setAutoScroll(e.target.checked)}
+              className="w-3.5 h-3.5"
+            />
+            自动滚动
+          </label>
+          <Button variant="secondary" size="sm" onClick={resetFilters}>重置筛选</Button>
+        </div>
       </div>
 
       {/* 日志列表 */}

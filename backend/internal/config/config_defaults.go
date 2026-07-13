@@ -9,6 +9,32 @@ import (
 
 var defaultBrowserStartURLs = []string{}
 
+const (
+	// BrowserConnectorXray 是历史 default_connector_type 的默认值。
+	// 新代理运行入口不再依赖全局连接栈，而是按单个代理自动解析 xray/sing-box/mihomo。
+	BrowserConnectorXray = "xray"
+	// BrowserConnectorMihomo 仅保留用于兼容旧配置、旧 API 和历史数据。
+	BrowserConnectorMihomo = "mihomo"
+)
+
+const (
+	BrowserConnectorXrayStack   = BrowserConnectorXray
+	BrowserConnectorMihomoStack = BrowserConnectorMihomo
+)
+
+// NormalizeBrowserConnectorType 只用于兼容历史 default_connector_type 输入。
+// 新代理执行入口应使用 proxy.ResolveProxyKernel 按单个代理选择内核。
+func NormalizeBrowserConnectorType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case BrowserConnectorMihomo, "clash", "clash-meta":
+		return BrowserConnectorMihomo
+	case BrowserConnectorXray, "sing-box", "singbox", "sing_box", "":
+		return BrowserConnectorXray
+	default:
+		return BrowserConnectorXray
+	}
+}
+
 func DefaultBrowserStartURLs() []string {
 	return append([]string{}, defaultBrowserStartURLs...)
 }
@@ -39,15 +65,14 @@ func normalizeConfig(config *Config) {
 	if config.App.Window.MinHeight <= 0 {
 		config.App.Window.MinHeight = defaultConfig.App.Window.MinHeight
 	}
+	// 保留个人版已有配置字段，避免升级后重写 config.yaml 时丢失历史记录。
+	// V1.3 已不再以该值限制实例数量，字段仅用于兼容旧配置。
+	if config.App.MaxProfileLimit <= 0 {
+		config.App.MaxProfileLimit = defaultConfig.App.MaxProfileLimit
+	}
 	if config.App.UsedCDKeys == nil {
 		config.App.UsedCDKeys = []string{}
 	}
-
-	expectedLimit := MinimumProfileLimitForUsedKeys(config.App.UsedCDKeys)
-	if config.App.MaxProfileLimit < expectedLimit {
-		config.App.MaxProfileLimit = expectedLimit
-	}
-
 	if config.Runtime.MaxMemoryMB <= 0 {
 		config.Runtime.MaxMemoryMB = defaultConfig.Runtime.MaxMemoryMB
 	}
@@ -110,12 +135,16 @@ func normalizeConfig(config *Config) {
 	} else if isLegacyVerificationStartURLs(config.Browser.DefaultStartURLs) {
 		config.Browser.DefaultStartURLs = []string{}
 	}
+	if config.Browser.LightStartEnabled == nil {
+		config.Browser.LightStartEnabled = defaultConfig.Browser.LightStartEnabled
+	}
 	if config.Browser.StartReadyTimeoutMs <= 0 {
 		config.Browser.StartReadyTimeoutMs = defaultConfig.Browser.StartReadyTimeoutMs
 	}
 	if config.Browser.StartStableWindowMs <= 0 {
 		config.Browser.StartStableWindowMs = defaultConfig.Browser.StartStableWindowMs
 	}
+	config.Browser.DefaultConnectorType = NormalizeBrowserConnectorType(config.Browser.DefaultConnectorType)
 	if config.Browser.DefaultBookmarks == nil {
 		config.Browser.DefaultBookmarks = []BrowserBookmark{}
 	}
@@ -154,6 +183,7 @@ func normalizeConfig(config *Config) {
 		!config.Automation.KeepRuntimeOnDisable &&
 		strings.TrimSpace(config.Automation.InstallPolicy) == "" &&
 		strings.TrimSpace(config.Automation.RuntimeVersion) == "" &&
+		strings.TrimSpace(config.Automation.ArtifactsDir) == "" &&
 		strings.TrimSpace(config.Automation.NodeSource) == "" &&
 		strings.TrimSpace(config.Automation.SystemNodePath) == "" &&
 		strings.TrimSpace(config.Automation.NodeVersion) == "" &&
@@ -169,6 +199,11 @@ func normalizeConfig(config *Config) {
 		}
 		if strings.TrimSpace(config.Automation.PlaywrightCoreVersion) == "" {
 			config.Automation.PlaywrightCoreVersion = defaultConfig.Automation.PlaywrightCoreVersion
+		}
+		if strings.TrimSpace(config.Automation.ArtifactsDir) == "" {
+			config.Automation.ArtifactsDir = defaultConfig.Automation.ArtifactsDir
+		} else {
+			config.Automation.ArtifactsDir = strings.TrimSpace(config.Automation.ArtifactsDir)
 		}
 		config.Automation.NodeSource = normalizeAutomationNodeSource(config.Automation.NodeSource)
 		config.Automation.SystemNodePath = strings.TrimSpace(config.Automation.SystemNodePath)
@@ -221,7 +256,7 @@ func DefaultConfig() *Config {
 				MinWidth:  960,
 				MinHeight: 560,
 			},
-			MaxProfileLimit: DefaultMaxProfileLimit,
+			MaxProfileLimit: 9999,
 			UsedCDKeys:      []string{},
 		},
 		Runtime: RuntimeConfig{
@@ -233,9 +268,11 @@ func DefaultConfig() *Config {
 			DefaultFingerprintArgs: defaultFingerprintArgsForOS(goruntime.GOOS),
 			DefaultLaunchArgs:      []string{"--disable-sync", "--no-first-run"},
 			DefaultStartURLs:       DefaultBrowserStartURLs(),
+			LightStartEnabled:      boolPtr(true),
 			RestoreLastSession:     false,
 			StartReadyTimeoutMs:    3000,
 			StartStableWindowMs:    1200,
+			DefaultConnectorType:   BrowserConnectorXray,
 		},
 		ProxyCheck: ProxyCheckConfig{
 			BridgeStartTimeoutMs: 15000,
@@ -280,6 +317,7 @@ func DefaultConfig() *Config {
 			HeadlessDefault:       false,
 			KeepRuntimeOnDisable:  true,
 			AllowTypeScriptBuild:  false,
+			ArtifactsDir:          "data/automation/artifacts",
 			NodeSource:            DefaultAutomationNodeSource,
 			SystemNodePath:        "",
 			NodeVersion:           DefaultAutomationNodeVersion,
@@ -311,4 +349,9 @@ func normalizeAutomationNodeSource(value string) string {
 	default:
 		return AutomationNodeSourceAuto
 	}
+}
+
+func boolPtr(value bool) *bool {
+	v := value
+	return &v
 }

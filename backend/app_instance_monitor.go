@@ -27,6 +27,10 @@ func (a *App) waitBrowserProcess(profileId string, monitor *browserProcessMonito
 
 	if wasRunning && debugPort > 0 {
 		snapshot, changed := a.waitForBrowserDebugReady(profileId, debugPort, browserLauncherDetachGraceWindow)
+		if warningSnapshot, warningChanged := a.finalizeDeferredStartTargets(profileId, debugPort); warningSnapshot != nil {
+			snapshot = warningSnapshot
+			changed = changed || warningChanged
+		}
 		if snapshot != nil && changed {
 			log.Info("浏览器启动器进程退出后，调试接口延迟就绪",
 				logger.F("profile_id", profileId),

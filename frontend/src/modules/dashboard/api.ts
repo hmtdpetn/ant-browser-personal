@@ -1,4 +1,4 @@
-import type { DashboardStats } from './types'
+﻿import type { DashboardStats } from './types'
 
 const getBindings = async () => {
   try {
@@ -13,47 +13,19 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   if (bindings?.GetDashboardStats) {
     try {
       const data = await bindings.GetDashboardStats()
-      const licenseStatus = bindings.GetLicenseStatus ? await bindings.GetLicenseStatus() : { maxLimit: 9999 }
       return {
         totalInstances: data?.totalInstances ?? 0,
         runningInstances: data?.runningInstances ?? 0,
         proxyCount: data?.proxyCount ?? 0,
         coreCount: data?.coreCount ?? 0,
         memUsedMB: data?.memUsedMB ?? 0,
-        maxProfileLimit: licenseStatus?.maxLimit ?? 9999,
         appVersion: data?.appVersion ?? 'unknown',
       }
     } catch (e) {
       console.error('fetchDashboardStats error:', e)
     }
   }
-  return { totalInstances: 0, runningInstances: 0, proxyCount: 0, coreCount: 0, memUsedMB: 0, maxProfileLimit: 9999, appVersion: 'unknown' }
-}
-
-export async function redeemCDKey(cdkey: string): Promise<{ success: boolean, message?: string }> {
-  const bindings: any = await getBindings()
-  if (bindings?.RedeemCDKey) {
-    try {
-      await bindings.RedeemCDKey(cdkey)
-      return { success: true }
-    } catch (e: any) {
-      return { success: false, message: e.message || '兑换失败' }
-    }
-  }
-  return { success: false, message: '系统 API 未就绪' }
-}
-
-export async function redeemGithubStar(): Promise<{ success: boolean, message?: string }> {
-  const bindings: any = await getBindings()
-  if (bindings?.RedeemGithubStar) {
-    try {
-      await bindings.RedeemGithubStar()
-      return { success: true }
-    } catch (e: any) {
-      return { success: false, message: e.message || '领取失败' }
-    }
-  }
-  return { success: false, message: '系统 API 未就绪' }
+  return { totalInstances: 0, runningInstances: 0, proxyCount: 0, coreCount: 0, memUsedMB: 0, appVersion: 'unknown' }
 }
 
 export async function reloadConfig(): Promise<void> {
@@ -65,17 +37,4 @@ export async function reloadConfig(): Promise<void> {
       console.error('reloadConfig error:', e)
     }
   }
-}
-
-export async function generateCDKeys(count: number): Promise<{ success: boolean, keys: string[], message?: string }> {
-  const bindings: any = await getBindings()
-  if (bindings?.GenerateCDKeys) {
-    try {
-      const keys = await bindings.GenerateCDKeys(count)
-      return { success: true, keys: keys || [] }
-    } catch (e: any) {
-      return { success: false, keys: [], message: e.message || '生成失败' }
-    }
-  }
-  return { success: false, keys: [], message: '系统 API 未就绪' }
 }

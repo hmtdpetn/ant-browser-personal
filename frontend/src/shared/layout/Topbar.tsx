@@ -1,5 +1,5 @@
 ﻿import { useState, useRef, useEffect } from 'react'
-import { Bell, Search, Settings, Check, Trash2, Info, AlertCircle, CheckCircle } from 'lucide-react'
+import { Bell, Settings, Check, Trash2, Info, AlertCircle, CheckCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { useNotificationStore, type Notification } from '../../store/notificationStore'
@@ -31,7 +31,7 @@ function NotificationDropdown({
       {/* Header */}
       <div className="px-4 py-3 border-b border-[var(--color-border-muted)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">通知</span>
+          <span className="text-sm font-semibold text-[var(--color-text-primary)]">异常与通知</span>
           {unreadCount > 0 && (
             <span className="px-1.5 py-0.5 text-xs font-medium bg-[var(--color-accent)] text-white rounded-full">
               {unreadCount}
@@ -63,7 +63,7 @@ function NotificationDropdown({
         {notifications.length === 0 ? (
           <div className="py-8 text-center text-[var(--color-text-muted)]">
             <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">暂无通知</p>
+            <p className="text-sm">暂无异常记录</p>
           </div>
         ) : (
           notifications.map((notification) => (
@@ -136,19 +136,6 @@ export function Topbar() {
 
   return (
     <header className="h-14 bg-[var(--color-bg-surface)] border-b border-[var(--color-border-default)] px-4 flex items-center justify-between gap-4">
-      {/* 搜索框 - 固定宽度，不随容器拉伸 */}
-      <div className="w-64">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-          <input
-            type="text"
-            placeholder="搜索..."
-            className="w-full h-8 pl-9 pr-3 bg-[var(--color-bg-muted)] border border-transparent rounded-md text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:bg-[var(--color-bg-surface)] focus:border-[var(--color-border-strong)] transition-all duration-150"
-          />
-        </div>
-      </div>
-
-      {/* 中间留白 */}
       <div className="flex-1" />
 
       {/* 右侧操作 */}

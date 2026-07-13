@@ -11,6 +11,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	cdpHTTPTimeout               = 3 * time.Second
+	cdpWebSocketHandshakeTimeout = 3 * time.Second
+	cdpWebSocketReadTimeout      = 5 * time.Second
+)
+
 // ============================================================================
 // Cookie 管理 API（通过 CDP）
 // ============================================================================
@@ -53,15 +59,41 @@ type cdpResponse struct {
 	} `json:"error,omitempty"`
 }
 
+func cdpGetEndpointBody(debugPort int, endpoint string) ([]byte, error) {
+	client := &http.Client{Timeout: cdpHTTPTimeout}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d%s", debugPort, endpoint))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+	return body, nil
+}
+
+func cdpDialWebSocket(wsURL string) (*websocket.Conn, error) {
+	dialer := *websocket.DefaultDialer
+	dialer.HandshakeTimeout = cdpWebSocketHandshakeTimeout
+	conn, _, err := dialer.Dial(wsURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
 // cdpCall 向指定 debugPort 发送单次 CDP 命令并返回 result 字段
 func cdpCall(debugPort int, method string, params map[string]any) (map[string]any, error) {
 	// 1. 获取 WebSocket 调试地址
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/json", debugPort))
+	body, err := cdpGetEndpointBody(debugPort, "/json")
 	if err != nil {
 		return nil, fmt.Errorf("CDP /json 请求失败: %w", err)
 	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
 
 	var targets []cdpTarget
 	if err := json.Unmarshal(body, &targets); err != nil || len(targets) == 0 {
@@ -83,12 +115,12 @@ func cdpCall(debugPort int, method string, params map[string]any) (map[string]an
 	}
 
 	// 2. 建立 WebSocket 连接
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, err := cdpDialWebSocket(wsURL)
 	if err != nil {
 		return nil, fmt.Errorf("WebSocket 连接失败: %w", err)
 	}
 	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(cdpWebSocketReadTimeout))
 
 	// 3. 发送 CDP 命令
 	msg := cdpMessage{Id: 1, Method: method, Params: params}
@@ -108,13 +140,10 @@ func cdpCall(debugPort int, method string, params map[string]any) (map[string]an
 }
 
 func cdpBrowserCall(debugPort int, method string, params map[string]any) error {
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/json/version", debugPort))
+	body, err := cdpGetEndpointBody(debugPort, "/json/version")
 	if err != nil {
 		return fmt.Errorf("CDP /json/version 请求失败: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
 	var version cdpBrowserVersion
 	if err := json.Unmarshal(body, &version); err != nil {
 		return fmt.Errorf("CDP browser target 解析失败: %w", err)
@@ -124,12 +153,12 @@ func cdpBrowserCall(debugPort int, method string, params map[string]any) error {
 		return fmt.Errorf("未找到浏览器级 WebSocket 调试地址")
 	}
 
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, err := cdpDialWebSocket(wsURL)
 	if err != nil {
 		return fmt.Errorf("浏览器级 WebSocket 连接失败: %w", err)
 	}
 	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(cdpWebSocketReadTimeout))
 
 	msg := cdpMessage{Id: 1, Method: method, Params: params}
 	if err := conn.WriteJSON(msg); err != nil {

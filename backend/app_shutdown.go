@@ -91,7 +91,7 @@ func (a *App) stopRuntimeServices() {
 		if a.xrayMgr != nil {
 			a.xrayMgr.StopAll()
 		}
-		a.clearProfileXrayBridges()
+		a.clearProfileProxyBridges()
 		if a.clashMgr != nil {
 			a.clashMgr.StopAll()
 		}

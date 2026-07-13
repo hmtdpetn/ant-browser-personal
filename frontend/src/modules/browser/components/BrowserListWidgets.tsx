@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, Copy, Pencil, Play, RefreshCw, Square, Trash2 } from 'lucide-react'
+import { Archive, ChevronDown, ChevronUp, Copy, Download, Pencil, Play, RefreshCw, Square, Trash2 } from 'lucide-react'
 
 import { Button, toast } from '../../../shared/components'
 import { regenerateBrowserProfileCode, setBrowserProfileCode } from '../api'
@@ -11,8 +11,11 @@ interface BatchToolbarProps {
   onDeselectAll: () => void
   onBatchStart: () => void
   onBatchStop: () => void
+  onBatchExport: () => void
+  onOpenBackup: () => void
   onBatchDelete: () => void
   batchLoading: boolean
+  exporting?: boolean
 }
 
 export function BatchToolbar({
@@ -22,8 +25,11 @@ export function BatchToolbar({
   onDeselectAll,
   onBatchStart,
   onBatchStop,
+  onBatchExport,
+  onOpenBackup,
   onBatchDelete,
   batchLoading,
+  exporting = false,
 }: BatchToolbarProps) {
   if (selectedCount === 0) return null
 
@@ -38,6 +44,12 @@ export function BatchToolbar({
         </Button>
         <Button size="sm" variant="secondary" onClick={onBatchStop} loading={batchLoading} title="批量停止">
           <Square className="w-3.5 h-3.5" />停止
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onBatchExport} loading={exporting} title="导出实例">
+          <Download className="w-3.5 h-3.5" />导出
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onOpenBackup} title="全量备份与导入">
+          <Archive className="w-3.5 h-3.5" />备份
         </Button>
         <Button
           size="sm"
@@ -131,6 +143,15 @@ export function KeywordInlineRow({ keywords }: KeywordInlineRowProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
 
+  const handleCopyKeyword = async (keyword: string) => {
+    try {
+      await navigator.clipboard.writeText(keyword)
+      toast.success('关键字已复制')
+    } catch {
+      toast.error('复制失败')
+    }
+  }
+
   useEffect(() => {
     if (containerRef.current) {
       setIsOverflowing(containerRef.current.scrollHeight > 36)
@@ -138,24 +159,26 @@ export function KeywordInlineRow({ keywords }: KeywordInlineRowProps) {
   }, [keywords])
 
   if (!keywords?.length) {
-    return <span className="text-xs text-[var(--color-text-muted)] italic">暂无关键字</span>
+    return <span className="text-xs text-[var(--color-text-muted)]">-</span>
   }
 
   return (
-    <div className="flex items-start gap-4 w-full">
+    <div className="flex items-start gap-4 w-full min-w-0">
       <div
         ref={containerRef}
-        className={`flex flex-wrap gap-2 flex-1 transition-all duration-300 ${expanded ? '' : 'overflow-hidden max-h-[32px]'}`}
+        className={`flex flex-wrap gap-2 flex-1 min-w-0 transition-all duration-300 ${expanded ? '' : 'overflow-hidden max-h-[32px]'}`}
       >
         {keywords.map((keyword, index) => (
-          <span
+          <button
+            type="button"
             key={index}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-[var(--color-text-secondary)] max-w-[200px]"
-            title={keyword}
+            className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2.5 py-1 text-left text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            title={`点击复制：${keyword}`}
+            onClick={() => { void handleCopyKeyword(keyword) }}
           >
             <span className="text-[var(--color-text-muted)] font-mono shrink-0">{index + 1}.</span>
             <span className="truncate">{keyword}</span>
-          </span>
+          </button>
         ))}
       </div>
       {isOverflowing && (

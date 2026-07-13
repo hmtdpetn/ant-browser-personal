@@ -165,7 +165,15 @@ func (a *App) waitForBrowserDebugReady(profileId string, debugPort int, timeout 
 
 func (a *App) waitBrowserDebugReadyAsync(profileId string, debugPort int, timeout time.Duration) {
 	snapshot, changed := a.waitForBrowserDebugReady(profileId, debugPort, timeout)
-	if snapshot == nil || !changed {
+	if snapshot == nil {
+		return
+	}
+
+	if warningSnapshot, warningChanged := a.finalizeDeferredStartTargets(profileId, debugPort); warningSnapshot != nil {
+		snapshot = warningSnapshot
+		changed = changed || warningChanged
+	}
+	if !changed {
 		return
 	}
 

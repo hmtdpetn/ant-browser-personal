@@ -99,3 +99,9 @@ func TestBrowserProxyFetchClashByURLAllFallbackErrorsHideURL(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectAnyTLSURIStaysDisabledForPersonalClashFlow(t *testing.T) {
+	if _, ok := proxyURIToClashNode("anytls://password@example.com:443?sni=example.com", 0); ok {
+		t.Fatal("direct anytls URI must not bypass the personal Clash YAML parser")
+	}
+}

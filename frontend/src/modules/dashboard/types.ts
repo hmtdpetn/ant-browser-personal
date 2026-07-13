@@ -4,6 +4,5 @@ export interface DashboardStats {
   proxyCount: number
   coreCount: number
   memUsedMB: number
-  maxProfileLimit: number
   appVersion: string
 }

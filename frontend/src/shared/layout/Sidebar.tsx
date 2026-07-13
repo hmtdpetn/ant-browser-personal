@@ -16,6 +16,7 @@ import {
   Cpu,
   Globe,
   Bot,
+  Puzzle,
   Tag,
   type LucideIcon,
 } from "lucide-react";
@@ -39,6 +40,7 @@ const iconMap: Record<string, LucideIcon> = {
   Cpu,
   Globe,
   Bot,
+  Puzzle,
   Bookmark,
   BookOpen,
   Tag,

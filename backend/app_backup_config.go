@@ -39,7 +39,7 @@ func (a *App) backupClearBusinessTables() error {
 	}
 	defer tx.Rollback()
 
-	tables := []string{"launch_codes", "browser_profiles", "browser_proxies", "browser_cores", "browser_bookmarks", "browser_groups"}
+	tables := []string{"launch_codes", "browser_profiles", "browser_proxies", "browser_cores", "browser_bookmarks", "browser_groups", "browser_extensions", "browser_profile_extension_settings", "browser_profile_extensions"}
 	for _, table := range tables {
 		if _, err := tx.Exec("DELETE FROM " + table); err != nil && !backupIsNoSuchTableError(err) {
 			return fmt.Errorf("清空数据表失败(%s): %w", table, err)
@@ -66,8 +66,6 @@ func (a *App) backupApplyIncomingConfig(incoming *config.Config, resetFirst bool
 		target = backupMergeConfig(current, incoming)
 	}
 	target.Database = current.Database
-	target.App.MaxProfileLimit = current.App.MaxProfileLimit
-	target.App.UsedCDKeys = append([]string{}, current.App.UsedCDKeys...)
 
 	if err := target.Save(a.resolveAppPath("config.yaml")); err != nil {
 		return fmt.Errorf("保存导入配置失败: %w", err)

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Monitor, Play, Shield, Cpu, ArrowRight, Globe, Settings } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../shared/components'
@@ -27,7 +27,7 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
 }
 
 const QUICK_LINKS = [
-  { to: '/browser', icon: <Monitor className="w-5 h-5" />, label: '浏览器实例', desc: '管理所有指纹浏览器' },
+  { to: '/browser/list', icon: <Monitor className="w-5 h-5" />, label: '浏览器实例', desc: '管理所有指纹浏览器' },
   { to: '/browser/proxy-pool', icon: <Shield className="w-5 h-5" />, label: '代理池', desc: '配置和测试代理节点' },
   { to: '/browser/cores', icon: <Cpu className="w-5 h-5" />, label: '内核管理', desc: '管理 Chrome 内核版本' },
   { to: '/settings', icon: <Settings className="w-5 h-5" />, label: '系统设置', desc: '全局参数配置' },
@@ -40,22 +40,42 @@ export function DashboardPage() {
     proxyCount: 0,
     coreCount: 0,
     memUsedMB: 0,
-    maxProfileLimit: 9999,
     appVersion: 'unknown',
   })
   const [loading, setLoading] = useState(true)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
     load()
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
-  const load = async () => {
+  const load = async (options?: { reloadFirst?: boolean }) => {
     setLoading(true)
     try {
-      await reloadConfig() // 强制从本地磁盘刷一次最新配置，解决各种情况下的容量不同步
-      setStats(await fetchDashboardStats())
-    } finally {
+      if (options?.reloadFirst) {
+        await reloadConfig()
+      }
+      const nextStats = await fetchDashboardStats()
+      if (!mountedRef.current) return
+      setStats(nextStats)
       setLoading(false)
+
+      if (!options?.reloadFirst) {
+        void reloadConfig()
+          .then(fetchDashboardStats)
+          .then((freshStats) => {
+            if (mountedRef.current) {
+              setStats(freshStats)
+            }
+          })
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -129,7 +149,6 @@ export function DashboardPage() {
               { label: '数据存储', value: 'SQLite + YAML' },
               { label: '内存占用', value: loading ? '-' : `${stats.memUsedMB} MB` },
               { label: '实例运行', value: loading ? '-' : `${stats.runningInstances} / ${stats.totalInstances}` },
-              { label: '实例上限', value: loading ? '-' : stats.maxProfileLimit.toString() },
             ].map(item => (
               <div
                 key={item.label}
