@@ -20,29 +20,66 @@ const (
 	clashSubscriptionTimeout  = 25 * time.Second
 )
 
-var clashSubscriptionUserAgents = []string{
-	"clash-verge/2.0 ant-chrome/1.0",
-	"FlClash/v0.8.92 clash-verge Platform/windows",
-	"clash-verge/v2.4.2",
-	"ClashforWindows/0.19.23",
+const maxClashSubscriptionUserAgentBytes = 512
+
+type ClashSubscriptionUserAgentOption struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	UserAgent string `json:"userAgent"`
+	Source    string `json:"source"`
 }
 
-// BrowserProxyFetchClashByURL 拉取 Clash 订阅 URL，并返回可直接导入的 YAML 文本与建议配置。
+type ClashSubscriptionFetchOptions struct {
+	ProxyID         string `json:"proxyId"`
+	UserAgent       string `json:"userAgent"`
+	FallbackEnabled bool   `json:"fallbackEnabled"`
+}
+
+var clashSubscriptionUserAgentOptions = []ClashSubscriptionUserAgentOption{
+	{ID: "ant", Label: "Ant Browser 默认", UserAgent: "clash-verge/2.0 ant-chrome/1.0", Source: "Ant Browser"},
+	{ID: "flclash-windows", Label: "FlClash Windows", UserAgent: "FlClash/v0.8.92 clash-verge Platform/windows", Source: "FlClash"},
+	{ID: "flclash-clash-verge", Label: "FlClash 兼容 · Clash Verge", UserAgent: "clash-verge/v2.4.2", Source: "FlClash preset"},
+	{ID: "flclash-cfw", Label: "FlClash 兼容 · Clash for Windows", UserAgent: "ClashforWindows/0.19.23", Source: "FlClash preset"},
+}
+
+var clashSubscriptionUserAgents = func() []string {
+	result := make([]string, 0, len(clashSubscriptionUserAgentOptions))
+	for _, option := range clashSubscriptionUserAgentOptions {
+		result = append(result, option.UserAgent)
+	}
+	return result
+}()
+
+// BrowserProxySubscriptionUserAgents 返回内置的订阅 User-Agent 列表。
+func (a *App) BrowserProxySubscriptionUserAgents() []ClashSubscriptionUserAgentOption {
+	result := make([]ClashSubscriptionUserAgentOption, len(clashSubscriptionUserAgentOptions))
+	copy(result, clashSubscriptionUserAgentOptions)
+	return result
+}
+
+// BrowserProxyFetchClashByURL 从 Clash 订阅 URL 获取并校验 YAML 配置。
+// 为保持旧接口兼容，默认会在请求失败时切换 User-Agent。
 func (a *App) BrowserProxyFetchClashByURL(rawURL string) (map[string]interface{}, error) {
-	return a.browserProxyFetchClashByURL(rawURL, "")
+	return a.browserProxyFetchClashByURL(rawURL, ClashSubscriptionFetchOptions{FallbackEnabled: true})
 }
 
-// BrowserProxyFetchClashByURLWithProxy 按当前连接栈使用指定代理拉取 Clash 订阅。
+// BrowserProxyFetchClashByURLWithProxy 通过指定代理获取 Clash 订阅。
+// 为保持旧接口兼容，默认会在请求失败时切换 User-Agent。
 func (a *App) BrowserProxyFetchClashByURLWithProxy(rawURL string, proxyID string) (map[string]interface{}, error) {
-	return a.browserProxyFetchClashByURL(rawURL, proxyID)
+	return a.browserProxyFetchClashByURL(rawURL, ClashSubscriptionFetchOptions{ProxyID: proxyID, FallbackEnabled: true})
 }
 
-func (a *App) browserProxyFetchClashByURL(rawURL string, proxyID string) (map[string]interface{}, error) {
+// BrowserProxyFetchClashByURLWithOptions 支持选择/自定义 User-Agent，并控制失败后是否切换。
+func (a *App) BrowserProxyFetchClashByURLWithOptions(rawURL string, options ClashSubscriptionFetchOptions) (map[string]interface{}, error) {
+	return a.browserProxyFetchClashByURL(rawURL, options)
+}
+
+func (a *App) browserProxyFetchClashByURL(rawURL string, options ClashSubscriptionFetchOptions) (map[string]interface{}, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return nil, fmt.Errorf("订阅 URL 不能为空")
 	}
-	proxyID = strings.TrimSpace(proxyID)
+	proxyID := strings.TrimSpace(options.ProxyID)
 
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil || parsedURL.Host == "" {
@@ -61,25 +98,33 @@ func (a *App) browserProxyFetchClashByURL(rawURL string, proxyID string) (map[st
 		}
 		client = proxyClient
 	}
-	content, payload, err := fetchClashSubscriptionWithFallback(client, parsedURL.String())
+	content, payload, usedUserAgent, attemptedUserAgents, err := fetchClashSubscription(
+		client,
+		parsedURL.String(),
+		options.UserAgent,
+		options.FallbackEnabled,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	proxyCount := clashProxyCount(payload)
 	if proxyCount <= 0 {
-		return nil, fmt.Errorf("未检测到可导入的 proxies 节点")
+		return nil, fmt.Errorf("订阅内容缺少 proxies 节点")
 	}
 
 	dnsYAML := extractClashDNSYAML(payload)
 	suggestedGroup := suggestClashGroupName(payload, parsedURL.Hostname())
 
 	return map[string]interface{}{
-		"url":            parsedURL.String(),
-		"content":        content,
-		"proxyCount":     proxyCount,
-		"dnsServers":     dnsYAML,
-		"suggestedGroup": suggestedGroup,
+		"url":                 parsedURL.String(),
+		"content":             content,
+		"proxyCount":          proxyCount,
+		"dnsServers":          dnsYAML,
+		"suggestedGroup":      suggestedGroup,
+		"usedUserAgent":       usedUserAgent,
+		"attemptedUserAgents": attemptedUserAgents,
+		"fallbackUsed":        len(attemptedUserAgents) > 1,
 	}, nil
 }
 
@@ -103,18 +148,77 @@ func (a *App) clashSubscriptionProxyClient(proxyID string) (*http.Client, error)
 }
 
 func fetchClashSubscriptionWithFallback(client *http.Client, targetURL string) (string, interface{}, error) {
+	content, payload, _, _, err := fetchClashSubscription(client, targetURL, "", true)
+	return content, payload, err
+}
+
+func fetchClashSubscription(client *http.Client, targetURL string, preferredUserAgent string, fallbackEnabled bool) (string, interface{}, string, []string, error) {
+	userAgents, err := buildClashSubscriptionUserAgentOrder(preferredUserAgent, fallbackEnabled)
+	if err != nil {
+		return "", nil, "", nil, err
+	}
+
 	var lastErr error
-	for _, userAgent := range clashSubscriptionUserAgents {
-		content, payload, err := fetchClashSubscriptionWithUserAgent(client, targetURL, userAgent)
-		if err == nil {
-			return content, payload, nil
+	attempted := make([]string, 0, len(userAgents))
+	for _, userAgent := range userAgents {
+		attempted = append(attempted, userAgent)
+		content, payload, fetchErr := fetchClashSubscriptionWithUserAgent(client, targetURL, userAgent)
+		if fetchErr == nil {
+			return content, payload, userAgent, attempted, nil
 		}
-		lastErr = err
+		lastErr = fetchErr
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("未配置可用的 User-Agent")
+		lastErr = fmt.Errorf("没有可用的 User-Agent")
 	}
-	return "", nil, fmt.Errorf("拉取订阅失败: %w", lastErr)
+	return "", nil, "", attempted, fmt.Errorf("订阅获取失败: %w", lastErr)
+}
+
+func buildClashSubscriptionUserAgentOrder(preferredUserAgent string, fallbackEnabled bool) ([]string, error) {
+	preferredUserAgent = strings.TrimSpace(preferredUserAgent)
+	if err := validateClashSubscriptionUserAgent(preferredUserAgent); err != nil {
+		return nil, err
+	}
+
+	candidates := make([]string, 0, len(clashSubscriptionUserAgents)+1)
+	if preferredUserAgent != "" {
+		candidates = append(candidates, preferredUserAgent)
+	}
+	if fallbackEnabled || preferredUserAgent == "" {
+		candidates = append(candidates, clashSubscriptionUserAgents...)
+	}
+
+	seen := make(map[string]struct{}, len(candidates))
+	result := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		key := strings.ToLower(candidate)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, candidate)
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("没有可用的 User-Agent")
+	}
+	return result, nil
+}
+
+func validateClashSubscriptionUserAgent(userAgent string) error {
+	if userAgent == "" {
+		return nil
+	}
+	if len([]byte(userAgent)) > maxClashSubscriptionUserAgentBytes {
+		return fmt.Errorf("User-Agent 不能超过 512 字节")
+	}
+	if strings.ContainsAny(userAgent, "\r\n") {
+		return fmt.Errorf("User-Agent 不能包含换行符")
+	}
+	return nil
 }
 
 func fetchClashSubscriptionWithUserAgent(client *http.Client, targetURL string, userAgent string) (string, interface{}, error) {

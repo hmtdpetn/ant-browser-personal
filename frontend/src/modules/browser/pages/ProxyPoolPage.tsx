@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ConfirmModal, toast } from '../../../shared/components'
+import { FolderInput, X } from 'lucide-react'
+import { Button, ConfirmModal, toast } from '../../../shared/components'
 import type { SortOrder } from '../../../shared/components/Table'
-import type { BrowserProxy, ProxyIPHealthResult } from '../types'
-import { fetchBrowserProxies, fetchBrowserProxyGroups, saveBrowserProxies } from '../api'
+import type { BrowserProxy, BrowserProxyGroupWithCount, ProxyIPHealthResult } from '../types'
+import { fetchBrowserProxies, fetchProxyGroups, moveProxiesToGroup, saveBrowserProxies } from '../api'
 import {
   buildChainImportCandidate,
   createInitialChainImportForm,
@@ -32,11 +33,27 @@ import { useProxyGlobalRefreshConfig } from './proxyPool/useProxyGlobalRefreshCo
 import { useProxyDeleteFlow } from './proxyPool/useProxyDeleteFlow'
 import { useProxyCoreDownload } from './proxyPool/useProxyCoreDownload'
 import { useProxyPoolFilter } from './proxyPool/useProxyPoolFilter'
+import { ProxyGroupSelect } from '../components/ProxyGroupSelect'
+import { ProxyGroupTreeNav } from '../components/ProxyGroupTreeNav'
 
 export function ProxyPoolPage() {
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
   const [displayList, setDisplayList] = useState<ProxyDisplayInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [groupSidebarCollapsed, setGroupSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('ant-browser.proxy-groups.collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('ant-browser.proxy-groups.collapsed', String(groupSidebarCollapsed))
+    } catch {
+      // Local preference persistence is optional.
+    }
+  }, [groupSidebarCollapsed])
   const {
     coreDownloadOpen,
     coreDownloadType,
@@ -56,11 +73,13 @@ export function ProxyPoolPage() {
     openCoreDownload,
     closeCoreDownload,
   } = useProxyCoreDownload()
-  const [groups, setGroups] = useState<string[]>([])
+  const [groups, setGroups] = useState<BrowserProxyGroupWithCount[]>([])
 
   const [filterProtocol, setFilterProtocol] = useState<string>('all')
   const [filterKeyword, setFilterKeyword] = useState('')
-  const [filterGroup, setFilterGroup] = useState<string>('all')
+  const [filterGroupId, setFilterGroupId] = useState('__all__')
+  const [moveTargetGroupId, setMoveTargetGroupId] = useState('')
+  const [movingSelected, setMovingSelected] = useState(false)
   const [filterAvailableOnly, setFilterAvailableOnly] = useState(false)
   const [sortColumn, setSortColumn] = useState<string>('') // 默认不排序
   const [sortOrder, setSortOrder] = useState<SortOrder>(undefined)
@@ -94,29 +113,30 @@ export function ProxyPoolPage() {
     proxyConfig: '',
     preferredKernel: 'auto',
     dnsServers: '',
-    groupName: '',
+    groupId: '',
   })
   const [saving, setSaving] = useState(false)
   const saveProxies = useCallback(async (list: BrowserProxy[]) => {
     await saveBrowserProxies(list)
     setProxies(list)
     setDisplayList(toDisplayList(list))
-    const grps = await fetchBrowserProxyGroups()
+    const grps = await fetchProxyGroups()
     setGroups(grps)
   }, [])
 
   const {
-    importModalOpen, setImportModalOpen, importMode, importUrl, importFetchProxyId, importResolvedUrl, importText,
-    importDnsServers, importNamePrefix, importGroupName, chainImportText, directImportText,
+    importModalOpen, setImportModalOpen, importMode, importUrl, importFetchProxyId, importUserAgentPreset, importCustomUserAgent, importUserAgentFallback, importResolvedUrl, importText,
+    importDnsServers, importNamePrefix, importGroupId, chainImportText, directImportText,
     chainImportForm, directImportForm, previewModalOpen, setPreviewModalOpen, previewList, removedPreviewProxyNames,
     importing, fetchingImportUrl, canParseImport, setImportText, setImportDnsServers,
-    setImportNamePrefix, setImportGroupName, setImportFetchProxyId, setChainImportText, setDirectImportText,
+    setImportNamePrefix, setImportGroupId, setImportFetchProxyId, setImportUserAgentPreset, setImportCustomUserAgent, setImportUserAgentFallback, setChainImportText, setDirectImportText,
     setChainImportForm, setDirectImportForm, handleRemovePreviewProxy, updateChainImportHop,
     handleImportModeChange, handleFillChainTemplate, handleFillDirectTemplate, handleCopyChainTemplate,
     handleCopyDirectTemplate, handleApplyChainJSON, handleApplyDirectText, handleImportUrlChange,
     handleFetchImportURL, handleParseImport, handleConfirmImport,
   } = useProxyImportFlow({
     proxies,
+    groups,
     globalAutoRefreshEnabled,
     globalRefreshInterval,
     saveProxies,
@@ -165,7 +185,7 @@ export function ProxyPoolPage() {
     try {
       const [list, groupList] = await Promise.all([
         fetchBrowserProxies(),
-        fetchBrowserProxyGroups(),
+        fetchProxyGroups(),
       ])
       const finalList = await ensureBuiltinProxies(list)
       setProxies(finalList)
@@ -214,7 +234,8 @@ export function ProxyPoolPage() {
     displayList,
     filterProtocol,
     filterKeyword,
-    filterGroup,
+    groups,
+    filterGroupId,
     filterAvailableOnly,
     sortColumn,
     sortOrder,
@@ -233,6 +254,7 @@ export function ProxyPoolPage() {
     handleToggleOne,
     handleBatchDeleteConfirm,
     removeSelectedId,
+    clearSelection,
   } = useProxySelection({ proxies, filteredList, saveProxies })
 
   const updateChainEditHop = (hop: 'first' | 'second', field: keyof ChainImportForm['first'], value: string) => {
@@ -254,7 +276,7 @@ export function ProxyPoolPage() {
         proxyConfig: proxy.proxyConfig,
         preferredKernel: proxy.preferredKernel || 'auto',
         dnsServers: proxy.dnsServers || '',
-        groupName: proxy.groupName || '',
+        groupId: proxy.groupId || '',
       })
       const nextChainForm = toChainImportForm(proxy.proxyName, proxy.proxyConfig)
       if (nextChainForm) {
@@ -297,7 +319,8 @@ export function ProxyPoolPage() {
             proxyConfig: nextProxyConfig,
             preferredKernel: editForm.preferredKernel === 'auto' ? undefined : editForm.preferredKernel,
             dnsServers: editForm.dnsServers.trim() || undefined,
-            groupName: editForm.groupName.trim() || undefined,
+            groupId: editForm.groupId || undefined,
+            groupName: groups.find(group => group.groupId === editForm.groupId)?.groupName || undefined,
           }
           : p
       )
@@ -316,6 +339,22 @@ export function ProxyPoolPage() {
     handleDeleteClick,
     handleDeleteConfirm,
   } = useProxyDeleteFlow({ proxies, saveProxies, removeSelectedId })
+
+  const handleMoveSelected = async () => {
+    if (selectedIds.size === 0) return
+    setMovingSelected(true)
+    try {
+      await moveProxiesToGroup(Array.from(selectedIds), moveTargetGroupId)
+      clearSelection()
+      await loadProxies()
+      const targetName = groups.find(group => group.groupId === moveTargetGroupId)?.groupName || '未分组'
+      toast.success(`已将所选代理移动到“${targetName}”`)
+    } catch (error: any) {
+      toast.error(error?.message || '移动代理失败')
+    } finally {
+      setMovingSelected(false)
+    }
+  }
   return (
     <div className="space-y-5 animate-fade-in">
       <ProxyPoolHeader
@@ -333,72 +372,115 @@ export function ProxyPoolPage() {
         totalCount={filteredList.length}
       />
 
-      <ProxyPoolTableCard
-        allFilteredSelected={allFilteredSelected}
-        checkingIPHealthIds={checkingIPHealthIds}
-        data={filteredList}
-        filterGroup={filterGroup}
-        filterKeyword={filterKeyword}
-        filterProtocol={filterProtocol}
-        filterAvailableOnly={filterAvailableOnly}
-        globalAutoRefreshEnabled={globalAutoRefreshEnabled}
-        globalRefreshInterval={globalRefreshInterval}
-        globalRefreshIntervalM={globalRefreshIntervalM}
-        groups={groups}
-        ipHealthMap={ipHealthMap}
-        latencyMap={latencyMap}
-        latencyEngineMap={latencyEngineMap}
-        latencyErrorMap={latencyErrorMap}
-        loading={loading}
-        onCheckOneIPHealth={(record) => void handleCheckOneIPHealth(record)}
-        onClearFilters={() => {
-          setFilterProtocol('all')
-          setFilterKeyword('')
-          setFilterGroup('all')
-          setFilterAvailableOnly(false)
-        }}
-        onDelete={handleDeleteClick}
-        onEdit={handleEdit}
-        onFilterGroupChange={setFilterGroup}
-        onFilterKeywordChange={setFilterKeyword}
-        onFilterProtocolChange={setFilterProtocol}
-        onFilterAvailableOnlyChange={setFilterAvailableOnly}
-        onGlobalAutoRefreshEnabledChange={setGlobalAutoRefreshEnabled}
-        onGlobalRefreshIntervalMChange={setGlobalRefreshIntervalM}
-        onOpenBatchDelete={() => setBatchDeleteConfirmOpen(true)}
-        onOpenIPHealthDetail={openIPHealthDetail}
-        onRefreshSingleSource={(sourceId) => void refreshSingleSource(sourceId, false)}
-        onSort={({ column, order }) => {
-          setSortColumn(column)
-          setSortOrder(order)
-        }}
-        onTestOne={(record) => void handleTestOne(record)}
-        onToggleAll={handleToggleAll}
-        onToggleOne={handleToggleOne}
-        onWarmupOne={(record) => void handleWarmupOne(record)}
-        onWarmupSelected={() => void handleWarmupAll(filteredList.filter(item => selectedIds.has(item.proxyId)))}
-        protocolOptions={protocolOptions}
-        refreshingSourceIds={refreshingSourceIds}
-        selectedCount={selectedCount}
-        selectedIds={selectedIds}
-        someFilteredSelected={someFilteredSelected}
-        sortColumn={sortColumn}
-        sortOrder={sortOrder}
-        warmingAllBridges={warmingAllBridges}
-        warmingBridgeIds={warmingBridgeIds}
-      />
-
+      <div className={groupSidebarCollapsed ? 'grid items-start gap-3 lg:grid-cols-[56px_minmax(0,1fr)]' : 'grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'}>
+        <ProxyGroupTreeNav
+          groups={groups}
+          selectedGroupId={filterGroupId}
+          totalCount={proxies.length}
+          ungroupedCount={proxies.filter(proxy => !proxy.groupId).length}
+          onSelectGroup={setFilterGroupId}
+          onRefresh={loadProxies}
+          collapsed={groupSidebarCollapsed}
+          onToggleCollapsed={() => setGroupSidebarCollapsed(previous => !previous)}
+        />
+        <div className="min-w-0 space-y-3">
+          {selectedCount > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/10 px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-[var(--color-accent)] px-2 py-1 text-xs font-semibold text-[var(--color-text-inverse)]">
+                  {selectedCount}
+                </span>
+                <span className="text-sm font-medium text-[var(--color-text-primary)]">个代理已选择</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2.5 py-2">
+                <FolderInput className="h-4 w-4 text-[var(--color-accent)]" />
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">移动到</span>
+                <ProxyGroupSelect
+                  groups={groups}
+                  value={moveTargetGroupId}
+                  onChange={setMoveTargetGroupId}
+                  className="min-w-[220px]"
+                />
+                <Button size="sm" onClick={() => void handleMoveSelected()} loading={movingSelected}>确认移动</Button>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto"
+                disabled={movingSelected}
+                onClick={clearSelection}
+              >
+                <X className="h-3.5 w-3.5" />取消选择
+              </Button>
+            </div>
+          )}
+          <ProxyPoolTableCard
+            allFilteredSelected={allFilteredSelected}
+            checkingIPHealthIds={checkingIPHealthIds}
+            data={filteredList}
+            filterKeyword={filterKeyword}
+            filterProtocol={filterProtocol}
+            filterAvailableOnly={filterAvailableOnly}
+            globalAutoRefreshEnabled={globalAutoRefreshEnabled}
+            globalRefreshInterval={globalRefreshInterval}
+            globalRefreshIntervalM={globalRefreshIntervalM}
+            ipHealthMap={ipHealthMap}
+            latencyMap={latencyMap}
+            latencyEngineMap={latencyEngineMap}
+            latencyErrorMap={latencyErrorMap}
+            loading={loading}
+            onCheckOneIPHealth={(record) => void handleCheckOneIPHealth(record)}
+            onClearFilters={() => {
+              setFilterProtocol('all')
+              setFilterKeyword('')
+              setFilterGroupId('__all__')
+              setFilterAvailableOnly(false)
+            }}
+            onDelete={handleDeleteClick}
+            onEdit={handleEdit}
+            onFilterKeywordChange={setFilterKeyword}
+            onFilterProtocolChange={setFilterProtocol}
+            onFilterAvailableOnlyChange={setFilterAvailableOnly}
+            onGlobalAutoRefreshEnabledChange={setGlobalAutoRefreshEnabled}
+            onGlobalRefreshIntervalMChange={setGlobalRefreshIntervalM}
+            onOpenBatchDelete={() => setBatchDeleteConfirmOpen(true)}
+            onOpenIPHealthDetail={openIPHealthDetail}
+            onRefreshSingleSource={(sourceId) => void refreshSingleSource(sourceId, false)}
+            onSort={({ column, order }) => {
+              setSortColumn(column)
+              setSortOrder(order)
+            }}
+            onTestOne={(record) => void handleTestOne(record)}
+            onToggleAll={handleToggleAll}
+            onToggleOne={handleToggleOne}
+            onWarmupOne={(record) => void handleWarmupOne(record)}
+            onWarmupSelected={() => void handleWarmupAll(filteredList.filter(item => selectedIds.has(item.proxyId)))}
+            protocolOptions={protocolOptions}
+            refreshingSourceIds={refreshingSourceIds}
+            selectedCount={selectedCount}
+            selectedIds={selectedIds}
+            someFilteredSelected={someFilteredSelected}
+            sortColumn={sortColumn}
+            sortOrder={sortOrder}
+            warmingAllBridges={warmingAllBridges}
+            warmingBridgeIds={warmingBridgeIds}
+          />
+        </div>
+      </div>
       <ProxyPoolImportModal
-        open={importModalOpen}
         groups={groups}
+        open={importModalOpen}
         importMode={importMode}
         importUrl={importUrl}
         importFetchProxyId={importFetchProxyId}
+        importUserAgentPreset={importUserAgentPreset}
+        importCustomUserAgent={importCustomUserAgent}
+        importUserAgentFallback={importUserAgentFallback}
         importResolvedUrl={importResolvedUrl}
         importText={importText}
         importDnsServers={importDnsServers}
         importNamePrefix={importNamePrefix}
-        importGroupName={importGroupName}
+        importGroupId={importGroupId}
         chainImportText={chainImportText}
         directImportText={directImportText}
         chainImportForm={chainImportForm}
@@ -412,10 +494,13 @@ export function ProxyPoolPage() {
         onImportModeChange={handleImportModeChange}
         onImportUrlChange={handleImportUrlChange}
         onImportFetchProxyIdChange={setImportFetchProxyId}
+        onImportUserAgentPresetChange={setImportUserAgentPreset}
+        onImportCustomUserAgentChange={setImportCustomUserAgent}
+        onImportUserAgentFallbackChange={setImportUserAgentFallback}
         onImportTextChange={setImportText}
         onImportDnsServersChange={setImportDnsServers}
         onImportNamePrefixChange={setImportNamePrefix}
-        onImportGroupNameChange={setImportGroupName}
+        onImportGroupIdChange={setImportGroupId}
         onChainImportTextChange={setChainImportText}
         onDirectImportTextChange={setDirectImportText}
         onApplyChainJSON={handleApplyChainJSON}
@@ -446,9 +531,9 @@ export function ProxyPoolPage() {
       />
 
       <ProxyPoolEditModal
+        groups={groups}
         open={editModalOpen}
         saving={saving}
-        groups={groups}
         editForm={editForm}
         chainEditMode={chainEditMode}
         chainEditForm={chainEditForm}

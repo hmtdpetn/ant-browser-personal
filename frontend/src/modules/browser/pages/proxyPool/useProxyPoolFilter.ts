@@ -1,13 +1,14 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import type { SortOrder } from '../../../../shared/components/Table'
-import type { ProxyIPHealthResult } from '../../types'
+import type { BrowserProxyGroupWithCount, ProxyIPHealthResult } from '../../types'
 import type { ProxyDisplayInfo } from './helpers'
 
 interface UseProxyPoolFilterOptions {
   displayList: ProxyDisplayInfo[]
+  groups: BrowserProxyGroupWithCount[]
   filterProtocol: string
   filterKeyword: string
-  filterGroup: string
+  filterGroupId: string
   filterAvailableOnly: boolean
   sortColumn: string
   sortOrder: SortOrder
@@ -16,6 +17,24 @@ interface UseProxyPoolFilterOptions {
 }
 
 const compareText = (a: string, b: string) => a.localeCompare(b, 'zh-CN')
+
+function collectDescendantGroupIds(groups: BrowserProxyGroupWithCount[], rootId: string): Set<string> {
+  const childrenByParent = new Map<string, string[]>()
+  groups.forEach(group => {
+    const children = childrenByParent.get(group.parentId) || []
+    children.push(group.groupId)
+    childrenByParent.set(group.parentId, children)
+  })
+  const result = new Set<string>()
+  const queue = [rootId]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (result.has(current)) continue
+    result.add(current)
+    queue.push(...(childrenByParent.get(current) || []))
+  }
+  return result
+}
 
 function getLatencySortTuple(latencyMap: Record<string, number>, proxyId: string): [number, number] {
   const latency = latencyMap[proxyId]
@@ -68,9 +87,10 @@ function compareByColumn(
 export function useProxyPoolFilter(options: UseProxyPoolFilterOptions) {
   const {
     displayList,
+    groups,
     filterProtocol,
     filterKeyword,
-    filterGroup,
+    filterGroupId,
     filterAvailableOnly,
     sortColumn,
     sortOrder,
@@ -85,10 +105,14 @@ export function useProxyPoolFilter(options: UseProxyPoolFilterOptions) {
 
   const filteredList = useMemo(() => {
     const keyword = filterKeyword.toLowerCase()
+    const allowedGroupIds = filterGroupId !== '__all__' && filterGroupId
+      ? collectDescendantGroupIds(groups, filterGroupId)
+      : null
     const filtered = displayList.filter(p => {
       const matchProtocol = filterProtocol === 'all' || p.type === filterProtocol
       const matchKeyword = !keyword || p.proxyName.toLowerCase().includes(keyword) || p.server.toLowerCase().includes(keyword)
-      const matchGroup = filterGroup === 'all' || p.groupName === filterGroup
+      const matchGroup = filterGroupId === '__all__'
+        || (filterGroupId === '' ? !p.groupId : Boolean(p.groupId && allowedGroupIds?.has(p.groupId)))
       const matchAvailable = !filterAvailableOnly || isProxyAvailable(p.proxyId, latencyMap, ipHealthMap)
       return matchProtocol && matchKeyword && matchGroup && matchAvailable
     })
@@ -98,7 +122,7 @@ export function useProxyPoolFilter(options: UseProxyPoolFilterOptions) {
       const cmp = compareByColumn(latencyMap, a, b, sortColumn)
       return sortOrder === 'asc' ? cmp : -cmp
     })
-  }, [displayList, filterProtocol, filterKeyword, filterGroup, filterAvailableOnly, sortColumn, sortOrder, latencyMap, ipHealthMap])
+  }, [displayList, groups, filterProtocol, filterKeyword, filterGroupId, filterAvailableOnly, sortColumn, sortOrder, latencyMap, ipHealthMap])
 
   return { protocolOptions, filteredList }
 }

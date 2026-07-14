@@ -1,4 +1,4 @@
-import yaml from 'js-yaml'
+﻿import yaml from 'js-yaml'
 import type { BrowserProxy } from '../../types'
 import type { ClashProxy, ImportCandidate, ProxyDisplayInfo } from './helpers.types'
 import { BUILTIN_PROXIES } from './helpers.types'
@@ -52,6 +52,7 @@ export function toDisplayList(proxies: BrowserProxy[]): ProxyDisplayInfo[] {
       proxyConfig: proxy.proxyConfig,
       preferredKernel: proxy.preferredKernel || 'auto',
       groupName: proxy.groupName || '',
+      groupId: proxy.groupId || '',
       sourceId: proxy.sourceId || '',
       sourceUrl: proxy.sourceUrl || '',
       sourceAutoRefresh: !!proxy.sourceAutoRefresh,
@@ -172,6 +173,7 @@ export function buildImportPreview(candidates: ImportCandidate[], groupName: str
       proxyConfig: candidate.proxyConfig,
       preferredKernel: 'auto',
       groupName: candidate.groupName || groupName,
+      groupId: '',
       sourceId: '',
       sourceUrl: '',
       sourceAutoRefresh: false,

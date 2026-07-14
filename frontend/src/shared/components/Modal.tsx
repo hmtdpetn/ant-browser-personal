@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { Button } from './Button'
 
@@ -34,23 +35,23 @@ export function Modal({
 
   if (!open) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 遮罩层 */}
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center" role="presentation">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
         onClick={closable ? onClose : undefined}
       />
 
-      {/* 弹窗内容 */}
       <div
-        className="relative bg-[var(--color-bg-elevated)] rounded-xl shadow-2xl animate-scale-in max-h-[90vh] w-full flex flex-col"
+        className="relative z-[1] flex max-h-[90vh] w-full flex-col rounded-xl bg-[var(--color-bg-elevated)] shadow-2xl animate-scale-in"
         style={{ width, maxWidth: '90vw' }}
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || '???'}
+        onClick={(event) => event.stopPropagation()}
       >
-        {/* 标题栏 */}
         {(title || closable) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] flex-shrink-0">
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
             {title && (
               <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
                 {title}
@@ -58,32 +59,32 @@ export function Modal({
             )}
             {closable && (
               <button
+                type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)] transition-colors ml-auto"
+                className="ml-auto rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
+                aria-label="??"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </button>
             )}
           </div>
         )}
 
-        {/* 内容区 */}
-        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {children}
         </div>
 
-        {/* 底部按钮 */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--color-border)] flex-shrink-0">
+          <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-[var(--color-border)] px-6 py-4">
             {footer}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
-// 确认对话框
 interface ConfirmModalProps {
   open: boolean
   onClose: () => void
@@ -99,10 +100,10 @@ export function ConfirmModal({
   open,
   onClose,
   onConfirm,
-  title = '确认',
+  title = '??',
   content,
-  confirmText = '确定',
-  cancelText = '取消',
+  confirmText = '??',
+  cancelText = '??',
   danger = false,
 }: ConfirmModalProps) {
   return (

@@ -4,7 +4,7 @@ import { Archive, CheckCircle, ChevronRight, ChevronUp, Edit2, Folders, LayoutGr
 import { Button, Card, FormItem, Input, Modal, Switch, Table, Textarea } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
 
-import type { BrowserCore, BrowserCoreInput, BrowserGroupWithCount, BrowserProxy, BrowserSettings } from '../types'
+import type { BrowserCore, BrowserCoreInput, BrowserProxy, BrowserSettings } from '../types'
 import { InstanceFilterBar } from './InstanceFilterBar'
 import type { InstanceFilters } from './InstanceFilterBar'
 
@@ -18,7 +18,6 @@ interface BrowserListHeaderProps {
   viewMode: BrowserViewMode
   proxies: BrowserProxy[]
   cores: BrowserCore[]
-  groups: BrowserGroupWithCount[]
   allTags: string[]
   filters: InstanceFilters
   onFiltersChange: (next: InstanceFilters) => void
@@ -41,7 +40,6 @@ export function BrowserListHeader({
   viewMode,
   proxies,
   cores,
-  groups,
   allTags,
   filters,
   onFiltersChange,
@@ -138,7 +136,6 @@ export function BrowserListHeader({
           proxies={proxies}
           cores={cores}
           allTags={allTags}
-          groups={groups}
         />
       )}
     </>

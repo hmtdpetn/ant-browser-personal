@@ -55,7 +55,10 @@ export function useProxySourceRefresh({
     })
 
     try {
-      const result = await fetchClashImportFromURL(meta.sourceUrl)
+      const result = await fetchClashImportFromURL(meta.sourceUrl, {
+        userAgent: meta.sourceUserAgent,
+        fallbackEnabled: meta.sourceUserAgentFallback,
+      })
       const parsed = parseClashImportText(result.content || '')
       if (!parsed.length) {
         throw new Error('订阅内容未解析到可用代理')

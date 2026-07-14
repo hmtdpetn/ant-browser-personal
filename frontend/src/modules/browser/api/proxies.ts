@@ -7,7 +7,30 @@ export interface ClashImportURLResult {
   proxyCount: number
   dnsServers?: string
   suggestedGroup?: string
+  usedUserAgent?: string
+  attemptedUserAgents?: string[]
+  fallbackUsed?: boolean
 }
+
+export interface ClashSubscriptionUserAgentOption {
+  id: string
+  label: string
+  userAgent: string
+  source: string
+}
+
+export interface ClashImportFetchOptions {
+  proxyId?: string
+  userAgent?: string
+  fallbackEnabled?: boolean
+}
+
+export const DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS: ClashSubscriptionUserAgentOption[] = [
+  { id: 'ant', label: 'Ant Browser 默认', userAgent: 'clash-verge/2.0 ant-chrome/1.0', source: 'Ant Browser' },
+  { id: 'flclash-windows', label: 'FlClash Windows', userAgent: 'FlClash/v0.8.92 clash-verge Platform/windows', source: 'FlClash' },
+  { id: 'flclash-clash-verge', label: 'FlClash 兼容 · Clash Verge', userAgent: 'clash-verge/v2.4.2', source: 'FlClash preset' },
+  { id: 'flclash-cfw', label: 'FlClash 兼容 · Clash for Windows', userAgent: 'ClashforWindows/0.19.23', source: 'FlClash preset' },
+]
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -37,49 +60,67 @@ export async function fetchBrowserProxiesByGroup(groupName: string): Promise<Bro
   return getMockProxies().filter((proxy) => proxy.groupName === groupName)
 }
 
-export async function fetchClashImportFromURL(targetURL: string, proxyId = ''): Promise<ClashImportURLResult> {
+export async function fetchClashSubscriptionUserAgents(): Promise<ClashSubscriptionUserAgentOption[]> {
   const bindings: any = await getBindings()
-  const trimmedProxyId = proxyId.trim()
-  if (trimmedProxyId && bindings?.BrowserProxyFetchClashByURLWithProxy) {
+  if (bindings?.BrowserProxySubscriptionUserAgents) {
+    const result = await bindings.BrowserProxySubscriptionUserAgents()
+    if (Array.isArray(result) && result.length > 0) return result
+  }
+  const goApp = getGoApp()
+  if (goApp?.BrowserProxySubscriptionUserAgents) {
+    const result = await goApp.BrowserProxySubscriptionUserAgents()
+    if (Array.isArray(result) && result.length > 0) return result
+  }
+  return DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS
+}
+
+export async function fetchClashImportFromURL(
+  targetURL: string,
+  optionsOrProxyId: ClashImportFetchOptions | string = {},
+): Promise<ClashImportURLResult> {
+  const options: ClashImportFetchOptions = typeof optionsOrProxyId === 'string'
+    ? { proxyId: optionsOrProxyId }
+    : optionsOrProxyId
+  const normalizedOptions = {
+    proxyId: (options.proxyId || '').trim(),
+    userAgent: (options.userAgent || '').trim(),
+    fallbackEnabled: options.fallbackEnabled !== false,
+  }
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProxyFetchClashByURLWithOptions) {
     return (
-      (await bindings.BrowserProxyFetchClashByURLWithProxy(targetURL, trimmedProxyId)) || {
+      (await bindings.BrowserProxyFetchClashByURLWithOptions(targetURL, normalizedOptions)) || {
         url: targetURL,
         content: '',
         proxyCount: 0,
       }
     )
+  }
+  const goApp = getGoApp()
+  if (goApp?.BrowserProxyFetchClashByURLWithOptions) {
+    return (
+      (await goApp.BrowserProxyFetchClashByURLWithOptions(targetURL, normalizedOptions)) || {
+        url: targetURL,
+        content: '',
+        proxyCount: 0,
+      }
+    )
+  }
+
+  const trimmedProxyId = normalizedOptions.proxyId
+  if (trimmedProxyId && bindings?.BrowserProxyFetchClashByURLWithProxy) {
+    return (await bindings.BrowserProxyFetchClashByURLWithProxy(targetURL, trimmedProxyId)) || { url: targetURL, content: '', proxyCount: 0 }
   }
   if (bindings?.BrowserProxyFetchClashByURL) {
-    return (
-      (await bindings.BrowserProxyFetchClashByURL(targetURL)) || {
-        url: targetURL,
-        content: '',
-        proxyCount: 0,
-      }
-    )
+    return (await bindings.BrowserProxyFetchClashByURL(targetURL)) || { url: targetURL, content: '', proxyCount: 0 }
   }
-
-  const goApp = getGoApp()
   if (trimmedProxyId && goApp?.BrowserProxyFetchClashByURLWithProxy) {
-    return (
-      (await goApp.BrowserProxyFetchClashByURLWithProxy(targetURL, trimmedProxyId)) || {
-        url: targetURL,
-        content: '',
-        proxyCount: 0,
-      }
-    )
+    return (await goApp.BrowserProxyFetchClashByURLWithProxy(targetURL, trimmedProxyId)) || { url: targetURL, content: '', proxyCount: 0 }
   }
   if (goApp?.BrowserProxyFetchClashByURL) {
-    return (
-      (await goApp.BrowserProxyFetchClashByURL(targetURL)) || {
-        url: targetURL,
-        content: '',
-        proxyCount: 0,
-      }
-    )
+    return (await goApp.BrowserProxyFetchClashByURL(targetURL)) || { url: targetURL, content: '', proxyCount: 0 }
   }
-
-  throw new Error('当前环境不支持 URL 导入 Clash 配置')
+  throw new Error('当前环境不支持通过 URL 获取 Clash 配置')
 }
 
 export async function saveBrowserProxies(proxies: BrowserProxy[]): Promise<boolean> {

@@ -442,7 +442,10 @@ export function BrowserProfilesPanel({
           }}
         />
       ),
-      width: 40,
+      width: 44,
+      minWidth: 44,
+      maxWidth: 44,
+      resizable: false,
       render: (_, record) => (
         <input
           type="checkbox"
@@ -455,10 +458,12 @@ export function BrowserProfilesPanel({
     {
       key: 'profileName',
       title: '实例名称',
-      width: 320,
+      width: 144,
+      minWidth: 96,
+      maxWidth: 360,
       render: (value, record) => (
-        <div className="flex min-w-[260px] flex-col gap-1">
-          <Link className="block truncate whitespace-nowrap text-[var(--color-accent)] text-sm font-medium hover:underline" to={`/browser/detail/${record.profileId}`} title={String(value || '')}>
+        <div className="flex min-w-0 flex-col gap-1">
+          <Link className="block whitespace-normal break-words text-sm font-medium leading-snug text-[var(--color-accent)] hover:underline" to={`/browser/detail/${record.profileId}`} title={String(value || '')}>
             {value}
           </Link>
           {record.tags && record.tags.length > 0 && (
@@ -472,7 +477,9 @@ export function BrowserProfilesPanel({
     {
       key: 'running',
       title: '状态',
-      width: 100,
+      width: 88,
+      minWidth: 72,
+      maxWidth: 140,
       render: (_, record) => {
         const status = getProfileStatus(record)
         return <Badge variant={status.variant} dot>{status.label}</Badge>
@@ -481,11 +488,17 @@ export function BrowserProfilesPanel({
     {
       key: 'coreId',
       title: '核心',
+      width: 120,
+      minWidth: 88,
+      maxWidth: 240,
       render: (_, record) => <span className="text-xs">{getProfileCoreLabel(record)}</span>,
     },
     {
       key: 'proxyId',
       title: '代理',
+      width: 180,
+      minWidth: 104,
+      maxWidth: 320,
       render: (value, record) => {
         const proxy = proxies.find(item => item.proxyId === value)
         const isBusy = isProfileBusy(record.profileId)
@@ -495,23 +508,33 @@ export function BrowserProfilesPanel({
     {
       key: 'launchCode',
       title: '快捷打开码',
+      width: 132,
+      minWidth: 88,
+      maxWidth: 240,
       render: (value, record) => <LaunchCodeCell profileId={record.profileId} code={value || ''} onRefresh={onRefreshProfiles} />,
     },
     {
       key: 'keywords',
       title: '关键字',
-      width: 200,
+      width: 180,
+      minWidth: 112,
+      maxWidth: 420,
       render: (value) => <KeywordInlineRow keywords={value || []} />,
     },
     {
       key: 'updatedAt',
       title: '上次更新',
+      width: 148,
+      minWidth: 112,
+      maxWidth: 240,
       render: formatTime,
     },
     {
       key: 'actions',
       title: '操作',
       width: 248,
+      minWidth: 176,
+      maxWidth: 360,
       align: 'right',
       render: (_, record) => {
         const isStarting = isProfileStarting(record.profileId)
@@ -561,6 +584,8 @@ export function BrowserProfilesPanel({
             columns={columns}
             data={profiles}
             rowKey="profileId"
+            resizableColumns
+            columnWidthsStorageKey="ant-browser.profile-table.column-widths.v1"
           />
         ) : (
           <div className="flex flex-wrap gap-4 min-h-[500px] p-4 items-start content-start">

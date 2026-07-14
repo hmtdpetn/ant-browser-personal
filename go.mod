@@ -10,6 +10,7 @@ require (
 	github.com/metacubex/mihomo v1.19.20
 	github.com/ulikunitz/xz v0.5.15
 	github.com/wailsapp/wails/v2 v2.12.0
+	golang.org/x/image v0.24.0
 	golang.org/x/net v0.35.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/text v0.22.0

@@ -1,5 +1,5 @@
-import { Button, FormItem, Input, Modal, Select, Textarea } from '../../../../shared/components'
-import type { BrowserProxy } from '../../types'
+﻿import { Button, FormItem, Input, Modal, Select, Textarea } from '../../../../shared/components'
+import type { BrowserProxy, BrowserProxyGroupWithCount } from '../../types'
 import {
   CHAIN_QUICK_IMPORT_TEMPLATE,
   DIRECT_QUICK_IMPORT_TEMPLATE,
@@ -8,18 +8,23 @@ import {
   type DirectImportForm,
   type ProxyImportMode,
 } from './helpers'
+import { SubscriptionUserAgentFields } from '../../components/SubscriptionUserAgentFields'
+import { ProxyGroupSelect } from '../../components/ProxyGroupSelect'
 
 interface ProxyPoolImportModalProps {
   open: boolean
-  groups: string[]
+  groups: BrowserProxyGroupWithCount[]
   importMode: ProxyImportMode
   importUrl: string
   importFetchProxyId: string
+  importUserAgentPreset: string
+  importCustomUserAgent: string
+  importUserAgentFallback: boolean
   importResolvedUrl: string
   importText: string
   importDnsServers: string
   importNamePrefix: string
-  importGroupName: string
+  importGroupId: string
   chainImportText: string
   directImportText: string
   chainImportForm: ChainImportForm
@@ -33,10 +38,13 @@ interface ProxyPoolImportModalProps {
   onImportModeChange: (nextMode: ProxyImportMode) => void
   onImportUrlChange: (nextValue: string) => void
   onImportFetchProxyIdChange: (nextValue: string) => void
+  onImportUserAgentPresetChange: (nextValue: string) => void
+  onImportCustomUserAgentChange: (nextValue: string) => void
+  onImportUserAgentFallbackChange: (enabled: boolean) => void
   onImportTextChange: (nextValue: string) => void
   onImportDnsServersChange: (nextValue: string) => void
   onImportNamePrefixChange: (nextValue: string) => void
-  onImportGroupNameChange: (nextValue: string) => void
+  onImportGroupIdChange: (nextValue: string) => void
   onChainImportTextChange: (nextValue: string) => void
   onDirectImportTextChange: (nextValue: string) => void
   onApplyChainJSON: () => void
@@ -56,11 +64,14 @@ export function ProxyPoolImportModal({
   importMode,
   importUrl,
   importFetchProxyId,
+  importUserAgentPreset,
+  importCustomUserAgent,
+  importUserAgentFallback,
   importResolvedUrl,
   importText,
   importDnsServers,
   importNamePrefix,
-  importGroupName,
+  importGroupId,
   chainImportText,
   directImportText,
   chainImportForm,
@@ -74,10 +85,13 @@ export function ProxyPoolImportModal({
   onImportModeChange,
   onImportUrlChange,
   onImportFetchProxyIdChange,
+  onImportUserAgentPresetChange,
+  onImportCustomUserAgentChange,
+  onImportUserAgentFallbackChange,
   onImportTextChange,
   onImportDnsServersChange,
   onImportNamePrefixChange,
-  onImportGroupNameChange,
+  onImportGroupIdChange,
   onChainImportTextChange,
   onDirectImportTextChange,
   onApplyChainJSON,
@@ -165,6 +179,15 @@ export function ProxyPoolImportModal({
                 </p>
               )}
             </FormItem>
+            <SubscriptionUserAgentFields
+              presetValue={importUserAgentPreset}
+              customValue={importCustomUserAgent}
+              fallbackEnabled={importUserAgentFallback}
+              disabled={fetchingImportUrl}
+              onPresetChange={onImportUserAgentPresetChange}
+              onCustomChange={onImportCustomUserAgentChange}
+              onFallbackEnabledChange={onImportUserAgentFallbackChange}
+            />
             <Textarea
               value={importText}
               onChange={(event) => onImportTextChange(event.target.value)}
@@ -381,22 +404,14 @@ export function ProxyPoolImportModal({
             </FormItem>
           </div>
         )}
-        <FormItem label="分组名称（可选）">
-          <Input
-            value={importGroupName}
-            onChange={(event) => onImportGroupNameChange(event.target.value)}
-            placeholder="分组名称"
-            list="proxy-groups-datalist"
+        <FormItem label="导入到分组（可选）">
+          <ProxyGroupSelect
+            groups={groups}
+            value={importGroupId}
+            onChange={onImportGroupIdChange}
           />
-          {groups.length > 0 && (
-            <datalist id="proxy-groups-datalist">
-              {groups.map((group) => (
-                <option key={group} value={group} />
-              ))}
-            </datalist>
-          )}
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            填写后本次导入的代理将归入该分组，可按分组筛选
+            可在左侧分组树中新建主分组或子分组；未选择时保留导入内容中的旧分组名称。
           </p>
         </FormItem>
         {importMode === 'clash' && (

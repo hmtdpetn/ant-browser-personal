@@ -275,24 +275,63 @@ func (d *SQLiteProfileDAO) ListByGroup(groupId string, includeChildren bool, chi
 	return list, rows.Err()
 }
 
-// MoveToGroup 批量移动实例到分组
+// MoveToGroup 在单个事务中批量移动实例到分组。groupId 为空表示移动到未分组。
 func (d *SQLiteProfileDAO) MoveToGroup(profileIds []string, groupId string) error {
 	if len(profileIds) == 0 {
 		return nil
 	}
-	inClause := ""
-	args := make([]interface{}, len(profileIds)+1)
-	args[0] = groupId
-	for i, id := range profileIds {
-		if i > 0 {
-			inClause += ","
-		}
-		inClause += "?"
-		args[i+1] = id
-	}
-	_, err := d.db.Exec(fmt.Sprintf(`UPDATE browser_profiles SET group_id = ? WHERE profile_id IN (%s)`, inClause), args...)
+
+	tx, err := d.db.Begin()
 	if err != nil {
-		return fmt.Errorf("批量移动实例失败: %w", err)
+		return fmt.Errorf("开始批量移动事务失败: %w", err)
+	}
+	rollback := func(cause error) error {
+		_ = tx.Rollback()
+		return cause
+	}
+
+	if groupId != "" {
+		var exists int
+		if err := tx.QueryRow(`SELECT 1 FROM browser_groups WHERE group_id = ?`, groupId).Scan(&exists); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return rollback(fmt.Errorf("目标分组不存在: %s", groupId))
+			}
+			return rollback(fmt.Errorf("验证目标分组失败: %w", err))
+		}
+	}
+
+	stmt, err := tx.Prepare(`UPDATE browser_profiles SET group_id = ?, updated_at = ? WHERE profile_id = ? AND COALESCE(deleted_at, '') = ''`)
+	if err != nil {
+		return rollback(fmt.Errorf("准备批量移动实例失败: %w", err))
+	}
+	defer stmt.Close()
+
+	now := time.Now().Format(time.RFC3339Nano)
+	seen := make(map[string]struct{}, len(profileIds))
+	for _, profileId := range profileIds {
+		if profileId == "" {
+			return rollback(errors.New("实例 ID 不能为空"))
+		}
+		if _, ok := seen[profileId]; ok {
+			continue
+		}
+		seen[profileId] = struct{}{}
+
+		result, err := stmt.Exec(groupId, now, profileId)
+		if err != nil {
+			return rollback(fmt.Errorf("移动实例 %s 失败: %w", profileId, err))
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return rollback(fmt.Errorf("确认实例 %s 移动结果失败: %w", profileId, err))
+		}
+		if affected != 1 {
+			return rollback(fmt.Errorf("实例不存在或已在回收站: %s", profileId))
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("提交批量移动实例失败: %w", err)
 	}
 	return nil
 }

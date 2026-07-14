@@ -105,3 +105,93 @@ func TestDirectAnyTLSURIStaysDisabledForPersonalClashFlow(t *testing.T) {
 		t.Fatal("direct anytls URI must not bypass the personal Clash YAML parser")
 	}
 }
+
+func TestBrowserProxyFetchClashByURLWithOptionsUsesSelectedUserAgentOnly(t *testing.T) {
+	const selectedUserAgent = "MySubscriptionClient/1.0"
+	var seenUserAgents []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenUserAgents = append(seenUserAgents, r.Header.Get("User-Agent"))
+		fmt.Fprint(w, testClashSubscriptionYAML)
+	}))
+	defer server.Close()
+
+	result, err := (&App{}).BrowserProxyFetchClashByURLWithOptions(server.URL, ClashSubscriptionFetchOptions{
+		UserAgent:       selectedUserAgent,
+		FallbackEnabled: false,
+	})
+	if err != nil {
+		t.Fatalf("BrowserProxyFetchClashByURLWithOptions returned error: %v", err)
+	}
+	if len(seenUserAgents) != 1 || seenUserAgents[0] != selectedUserAgent {
+		t.Fatalf("seen User-Agents = %#v, want only %q", seenUserAgents, selectedUserAgent)
+	}
+	if got := result["usedUserAgent"]; got != selectedUserAgent {
+		t.Fatalf("usedUserAgent = %v, want %q", got, selectedUserAgent)
+	}
+	if got := result["fallbackUsed"]; got != false {
+		t.Fatalf("fallbackUsed = %v, want false", got)
+	}
+}
+
+func TestBrowserProxyFetchClashByURLWithOptionsFallsBackAfterSelectedUserAgent(t *testing.T) {
+	const selectedUserAgent = "MySubscriptionClient/2.0"
+	var seenUserAgents []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenUserAgents = append(seenUserAgents, r.Header.Get("User-Agent"))
+		if len(seenUserAgents) == 1 {
+			http.Error(w, "unsupported client", http.StatusForbidden)
+			return
+		}
+		fmt.Fprint(w, testClashSubscriptionYAML)
+	}))
+	defer server.Close()
+
+	result, err := (&App{}).BrowserProxyFetchClashByURLWithOptions(server.URL, ClashSubscriptionFetchOptions{
+		UserAgent:       selectedUserAgent,
+		FallbackEnabled: true,
+	})
+	if err != nil {
+		t.Fatalf("BrowserProxyFetchClashByURLWithOptions returned error: %v", err)
+	}
+	if len(seenUserAgents) != 2 {
+		t.Fatalf("request count = %d, want 2", len(seenUserAgents))
+	}
+	if seenUserAgents[0] != selectedUserAgent || seenUserAgents[1] != clashSubscriptionUserAgents[0] {
+		t.Fatalf("seen User-Agents = %#v", seenUserAgents)
+	}
+	if got := result["fallbackUsed"]; got != true {
+		t.Fatalf("fallbackUsed = %v, want true", got)
+	}
+}
+
+func TestBrowserProxyFetchClashByURLWithOptionsRejectsUnsafeUserAgent(t *testing.T) {
+	for _, userAgent := range []string{
+		"safe-prefix\r\nX-Injected: yes",
+		strings.Repeat("x", maxClashSubscriptionUserAgentBytes+1),
+	} {
+		_, err := (&App{}).BrowserProxyFetchClashByURLWithOptions("https://example.com/sub", ClashSubscriptionFetchOptions{
+			UserAgent:       userAgent,
+			FallbackEnabled: false,
+		})
+		if err == nil {
+			t.Fatalf("unsafe User-Agent %q was accepted", userAgent)
+		}
+	}
+}
+
+func TestBrowserProxySubscriptionUserAgentsIncludesFlClashPresets(t *testing.T) {
+	options := (&App{}).BrowserProxySubscriptionUserAgents()
+	var foundClashVerge bool
+	var foundClashForWindows bool
+	for _, option := range options {
+		if option.UserAgent == "clash-verge/v2.4.2" && strings.Contains(option.Source, "FlClash") {
+			foundClashVerge = true
+		}
+		if option.UserAgent == "ClashforWindows/0.19.23" && strings.Contains(option.Source, "FlClash") {
+			foundClashForWindows = true
+		}
+	}
+	if !foundClashVerge || !foundClashForWindows {
+		t.Fatalf("FlClash presets missing: %#v", options)
+	}
+}

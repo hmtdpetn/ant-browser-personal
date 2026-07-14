@@ -124,6 +124,29 @@ type GroupWithCount struct {
 }
 
 // 类型别名
+// ProxyGroup is a persistent hierarchical proxy group.
+type ProxyGroup struct {
+	GroupId   string `json:"groupId"`
+	GroupName string `json:"groupName"`
+	ParentId  string `json:"parentId"`
+	SortOrder int    `json:"sortOrder"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// ProxyGroupInput creates or updates a proxy group.
+type ProxyGroupInput struct {
+	GroupName string `json:"groupName"`
+	ParentId  string `json:"parentId"`
+	SortOrder int    `json:"sortOrder"`
+}
+
+// ProxyGroupWithCount includes the number of directly assigned proxies.
+type ProxyGroupWithCount struct {
+	ProxyGroup
+	ProxyCount int `json:"proxyCount"`
+}
+
 type Proxy = config.BrowserProxy
 type Core = config.BrowserCore
 type Environment = config.BrowserEnvironment
@@ -146,12 +169,13 @@ type Manager struct {
 	CodeProvider     CodeProvider
 
 	// DAO 层（注入后使用 SQLite 存储，未注入时降级到 config.yaml）
-	ProfileDAO   ProfileDAO
-	ProxyDAO     ProxyDAO
-	CoreDAO      CoreDAO
-	BookmarkDAO  BookmarkDAO
-	GroupDAO     GroupDAO
-	ExtensionDAO ExtensionDAO
+	ProfileDAO    ProfileDAO
+	ProxyDAO      ProxyDAO
+	CoreDAO       CoreDAO
+	BookmarkDAO   BookmarkDAO
+	GroupDAO      GroupDAO
+	ProxyGroupDAO ProxyGroupDAO
+	ExtensionDAO  ExtensionDAO
 }
 
 // XrayBridge Xray 桥接进程

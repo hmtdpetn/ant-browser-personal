@@ -10,6 +10,7 @@ import {
   type ProxyDisplayInfo,
   type ProxyImportMode,
 } from './ProxyImportModal.types'
+import { SubscriptionUserAgentFields } from './SubscriptionUserAgentFields'
 
 interface ProxyImportModalViewProps {
   open: boolean
@@ -19,6 +20,9 @@ interface ProxyImportModalViewProps {
   importMode: ProxyImportMode
   importUrl: string
   importFetchProxyId: string
+  importUserAgentPreset: string
+  importCustomUserAgent: string
+  importUserAgentFallback: boolean
   importResolvedUrl: string
   importText: string
   importDnsServers: string
@@ -37,6 +41,9 @@ interface ProxyImportModalViewProps {
   onImportModeChange: (mode: ProxyImportMode) => void
   onImportUrlChange: (value: string) => void
   onImportFetchProxyIdChange: (value: string) => void
+  onImportUserAgentPresetChange: (value: string) => void
+  onImportCustomUserAgentChange: (value: string) => void
+  onImportUserAgentFallbackChange: (enabled: boolean) => void
   onImportResolvedUrlChange: (value: string) => void
   onFetchImportURL: () => Promise<void>
   onImportTextChange: (value: string) => void
@@ -62,6 +69,9 @@ export function ProxyImportModalView({
   importMode,
   importUrl,
   importFetchProxyId,
+  importUserAgentPreset,
+  importCustomUserAgent,
+  importUserAgentFallback,
   importResolvedUrl,
   importText,
   importDnsServers,
@@ -80,6 +90,9 @@ export function ProxyImportModalView({
   onImportModeChange,
   onImportUrlChange,
   onImportFetchProxyIdChange,
+  onImportUserAgentPresetChange,
+  onImportCustomUserAgentChange,
+  onImportUserAgentFallbackChange,
   onImportResolvedUrlChange,
   onFetchImportURL,
   onImportTextChange,
@@ -174,6 +187,15 @@ export function ProxyImportModalView({
                   </p>
                 )}
               </FormItem>
+              <SubscriptionUserAgentFields
+                presetValue={importUserAgentPreset}
+                customValue={importCustomUserAgent}
+                fallbackEnabled={importUserAgentFallback}
+                disabled={fetchingImportUrl}
+                onPresetChange={onImportUserAgentPresetChange}
+                onCustomChange={onImportCustomUserAgentChange}
+                onFallbackEnabledChange={onImportUserAgentFallbackChange}
+              />
               <Textarea
                 value={importText}
                 onChange={e => onImportTextChange(e.target.value)}

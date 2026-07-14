@@ -25,6 +25,8 @@ func NormalizeBrowserProxies(proxies []config.BrowserProxy, generateID func() st
 		sourceURL := strings.TrimSpace(item.SourceURL)
 		sourceID := strings.TrimSpace(item.SourceID)
 		sourceNamePrefix := strings.TrimSpace(item.SourceNamePrefix)
+		sourceUserAgent := strings.TrimSpace(item.SourceUserAgent)
+		sourceUserAgentFallback := item.SourceUserAgentFallback
 		sourceLastRefreshAt := strings.TrimSpace(item.SourceLastRefreshAt)
 		sourceRefreshIntervalM := item.SourceRefreshIntervalM
 		if sourceRefreshIntervalM < 0 {
@@ -44,25 +46,30 @@ func NormalizeBrowserProxies(proxies []config.BrowserProxy, generateID func() st
 		if sourceURL == "" {
 			sourceID = ""
 			sourceNamePrefix = ""
+			sourceUserAgent = ""
+			sourceUserAgentFallback = false
 			sourceLastRefreshAt = ""
 			sourceAutoRefresh = false
 			sourceRefreshIntervalM = 0
 		}
 
 		normalized = append(normalized, config.BrowserProxy{
-			ProxyId:                proxyID,
-			ProxyName:              proxyName,
-			ProxyConfig:            proxyConfig,
-			PreferredKernel:        NormalizePreferredKernel(item.PreferredKernel),
-			DnsServers:             strings.TrimSpace(item.DnsServers),
-			GroupName:              strings.TrimSpace(item.GroupName),
-			SourceID:               sourceID,
-			SourceURL:              sourceURL,
-			SourceNamePrefix:       sourceNamePrefix,
-			SourceAutoRefresh:      sourceAutoRefresh,
-			SourceRefreshIntervalM: sourceRefreshIntervalM,
-			SourceLastRefreshAt:    sourceLastRefreshAt,
-			SortOrder:              i,
+			ProxyId:                 proxyID,
+			ProxyName:               proxyName,
+			ProxyConfig:             proxyConfig,
+			PreferredKernel:         NormalizePreferredKernel(item.PreferredKernel),
+			DnsServers:              strings.TrimSpace(item.DnsServers),
+			GroupName:               strings.TrimSpace(item.GroupName),
+			GroupId:                 strings.TrimSpace(item.GroupId),
+			SourceID:                sourceID,
+			SourceURL:               sourceURL,
+			SourceNamePrefix:        sourceNamePrefix,
+			SourceUserAgent:         sourceUserAgent,
+			SourceUserAgentFallback: sourceUserAgentFallback,
+			SourceAutoRefresh:       sourceAutoRefresh,
+			SourceRefreshIntervalM:  sourceRefreshIntervalM,
+			SourceLastRefreshAt:     sourceLastRefreshAt,
+			SortOrder:               i,
 		})
 	}
 

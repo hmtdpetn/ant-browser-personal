@@ -135,23 +135,26 @@ type BrowserCore struct {
 }
 
 type BrowserProxy struct {
-	ProxyId                string `yaml:"proxy_id" json:"proxyId"`
-	ProxyName              string `yaml:"proxy_name" json:"proxyName"`
-	ProxyConfig            string `yaml:"proxy_config" json:"proxyConfig"`
-	PreferredKernel        string `yaml:"preferred_kernel,omitempty" json:"preferredKernel,omitempty"`
-	DnsServers             string `yaml:"dns_servers,omitempty" json:"dnsServers,omitempty"`
-	GroupName              string `yaml:"group_name,omitempty" json:"groupName,omitempty"`
-	SortOrder              int    `yaml:"sort_order,omitempty" json:"sortOrder,omitempty"`
-	SourceID               string `yaml:"source_id,omitempty" json:"sourceId,omitempty"`
-	SourceURL              string `yaml:"source_url,omitempty" json:"sourceUrl,omitempty"`
-	SourceNamePrefix       string `yaml:"source_name_prefix,omitempty" json:"sourceNamePrefix,omitempty"`
-	SourceAutoRefresh      bool   `yaml:"source_auto_refresh,omitempty" json:"sourceAutoRefresh,omitempty"`
-	SourceRefreshIntervalM int    `yaml:"source_refresh_interval_m,omitempty" json:"sourceRefreshIntervalM,omitempty"`
-	SourceLastRefreshAt    string `yaml:"source_last_refresh_at,omitempty" json:"sourceLastRefreshAt,omitempty"`
-	LastLatencyMs          int64  `yaml:"-" json:"lastLatencyMs"`
-	LastTestOk             bool   `yaml:"-" json:"lastTestOk"`
-	LastTestedAt           string `yaml:"-" json:"lastTestedAt"`
-	LastIPHealthJSON       string `yaml:"-" json:"lastIPHealthJson,omitempty"`
+	ProxyId                 string `yaml:"proxy_id" json:"proxyId"`
+	ProxyName               string `yaml:"proxy_name" json:"proxyName"`
+	ProxyConfig             string `yaml:"proxy_config" json:"proxyConfig"`
+	PreferredKernel         string `yaml:"preferred_kernel,omitempty" json:"preferredKernel,omitempty"`
+	DnsServers              string `yaml:"dns_servers,omitempty" json:"dnsServers,omitempty"`
+	GroupName               string `yaml:"group_name,omitempty" json:"groupName,omitempty"`
+	GroupId                 string `yaml:"group_id,omitempty" json:"groupId,omitempty"`
+	SortOrder               int    `yaml:"sort_order,omitempty" json:"sortOrder,omitempty"`
+	SourceID                string `yaml:"source_id,omitempty" json:"sourceId,omitempty"`
+	SourceURL               string `yaml:"source_url,omitempty" json:"sourceUrl,omitempty"`
+	SourceNamePrefix        string `yaml:"source_name_prefix,omitempty" json:"sourceNamePrefix,omitempty"`
+	SourceUserAgent         string `yaml:"source_user_agent,omitempty" json:"sourceUserAgent,omitempty"`
+	SourceUserAgentFallback bool   `yaml:"source_user_agent_fallback,omitempty" json:"sourceUserAgentFallback,omitempty"`
+	SourceAutoRefresh       bool   `yaml:"source_auto_refresh,omitempty" json:"sourceAutoRefresh,omitempty"`
+	SourceRefreshIntervalM  int    `yaml:"source_refresh_interval_m,omitempty" json:"sourceRefreshIntervalM,omitempty"`
+	SourceLastRefreshAt     string `yaml:"source_last_refresh_at,omitempty" json:"sourceLastRefreshAt,omitempty"`
+	LastLatencyMs           int64  `yaml:"-" json:"lastLatencyMs"`
+	LastTestOk              bool   `yaml:"-" json:"lastTestOk"`
+	LastTestedAt            string `yaml:"-" json:"lastTestedAt"`
+	LastIPHealthJSON        string `yaml:"-" json:"lastIPHealthJson,omitempty"`
 }
 
 type BrowserEnvironment struct {

@@ -135,5 +135,5 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          gh release view "$TAG_NAME" >/dev/null 2>&1 || gh release create "$TAG_NAME" --generate-notes
-          gh release upload "$TAG_NAME" release-artifacts/* --clobber
+          gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
+          gh release upload "$TAG_NAME" release-artifacts/* --clobber --repo "$GITHUB_REPOSITORY"
