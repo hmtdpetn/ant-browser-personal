@@ -218,7 +218,17 @@ export function BrowserProxyCoreStatus(arg1:backend.ProxyCoreDownloadRequest):Pr
 
 export function BrowserProxyFetchClashByURL(arg1:string):Promise<Record<string, any>>;
 
+export function BrowserProxyFetchClashByURLWithOptions(arg1:string,arg2:backend.ClashSubscriptionFetchOptions):Promise<Record<string, any>>;
+
 export function BrowserProxyFetchClashByURLWithProxy(arg1:string,arg2:string):Promise<Record<string, any>>;
+
+export function BrowserProxyGroupCreate(arg1:browser.ProxyGroupInput):Promise<browser.ProxyGroup>;
+
+export function BrowserProxyGroupDelete(arg1:string):Promise<void>;
+
+export function BrowserProxyGroupList():Promise<Array<browser.ProxyGroupWithCount>>;
+
+export function BrowserProxyGroupUpdate(arg1:string,arg2:browser.ProxyGroupInput):Promise<browser.ProxyGroup>;
 
 export function BrowserProxyList():Promise<Array<config.BrowserProxy>>;
 
@@ -226,9 +236,13 @@ export function BrowserProxyListByGroup(arg1:string):Promise<Array<config.Browse
 
 export function BrowserProxyListGroups():Promise<Array<string>>;
 
+export function BrowserProxyMoveToGroup(arg1:Array<string>,arg2:string):Promise<void>;
+
 export function BrowserProxyProbeBrowserPage(arg1:backend.ProxyBrowserProbeRequest):Promise<backend.ProxyBrowserProbeResult>;
 
 export function BrowserProxyResolveLocation(arg1:string):Promise<backend.ProxyLocationResolveResult>;
+
+export function BrowserProxySubscriptionUserAgents():Promise<Array<backend.ClashSubscriptionUserAgentOption>>;
 
 export function BrowserProxyTestSpeed(arg1:string):Promise<backend.ProxyTestResult>;
 

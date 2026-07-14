@@ -2,6 +2,8 @@ package backend
 
 import (
 	"ant-chrome/backend/internal/config"
+	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -83,16 +85,23 @@ func (a *App) backupMergeDatabaseFromSource(srcDBPath string, resetFirst bool, s
 	if a.db == nil || a.db.GetConn() == nil {
 		return fmt.Errorf("数据库未初始化")
 	}
-	tx, err := a.db.GetConn().Begin()
+	ctx := context.Background()
+	connection, err := a.db.GetConn().Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+
+	if _, err := connection.ExecContext(ctx, `ATTACH DATABASE ? AS src`, srcDBPath); err != nil {
+		return fmt.Errorf("挂载备份数据库失败: %w", err)
+	}
+	defer connection.ExecContext(ctx, `DETACH DATABASE src`)
+
+	tx, err := connection.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
-	if _, err := tx.Exec(`ATTACH DATABASE ? AS src`, srcDBPath); err != nil {
-		return fmt.Errorf("挂载备份数据库失败: %w", err)
-	}
-	defer tx.Exec(`DETACH DATABASE src`)
 
 	mergeTables := []struct {
 		name       string
@@ -109,6 +118,18 @@ FROM src.browser_groups s
 WHERE NOT EXISTS (
   SELECT 1 FROM browser_groups t
   WHERE t.group_id = s.group_id OR (t.parent_id = s.parent_id AND lower(t.group_name) = lower(s.group_name))
+)`,
+		},
+		{
+			name: "browser_proxy_groups",
+			insertAll: `INSERT INTO browser_proxy_groups (group_id, group_name, parent_id, sort_order, created_at, updated_at)
+SELECT group_id, group_name, COALESCE(parent_id,''), COALESCE(sort_order,0), created_at, updated_at FROM src.browser_proxy_groups`,
+			insertSafe: `INSERT INTO browser_proxy_groups (group_id, group_name, parent_id, sort_order, created_at, updated_at)
+SELECT s.group_id, s.group_name, COALESCE(s.parent_id,''), COALESCE(s.sort_order,0), s.created_at, s.updated_at
+FROM src.browser_proxy_groups s
+WHERE NOT EXISTS (
+  SELECT 1 FROM browser_proxy_groups t
+  WHERE t.group_id = s.group_id OR (t.parent_id = COALESCE(s.parent_id,'') AND lower(t.group_name) = lower(s.group_name))
 )`,
 		},
 		{
@@ -228,6 +249,12 @@ WHERE NOT EXISTS (
 		if !resetFirst {
 			sqlText = item.insertSafe
 		}
+		if item.name == "browser_proxies" {
+			sqlText, err = backupProxyMergeSQL(tx, resetFirst)
+			if err != nil {
+				return err
+			}
+		}
 		if item.name == "browser_bookmarks" {
 			hasOpenOnStart, err := backupSrcColumnExists(tx, item.name, "open_on_start")
 			if err != nil {
@@ -263,4 +290,58 @@ WHERE NOT EXISTS (
 	}
 
 	return tx.Commit()
+}
+func backupProxyMergeSQL(tx *sql.Tx, resetFirst bool) (string, error) {
+	optional := []struct {
+		name     string
+		fallback string
+	}{
+		{"preferred_kernel", "''"},
+		{"dns_servers", "''"},
+		{"group_name", "''"},
+		{"group_id", "''"},
+		{"source_id", "''"},
+		{"source_url", "''"},
+		{"source_name_prefix", "''"},
+		{"source_user_agent", "''"},
+		{"source_user_agent_fallback", "1"},
+		{"source_auto_refresh", "0"},
+		{"source_refresh_interval_m", "0"},
+		{"source_last_refresh_at", "''"},
+		{"last_latency_ms", "-1"},
+		{"last_test_ok", "0"},
+		{"last_tested_at", "''"},
+		{"last_ip_health_json", "''"},
+		{"sort_order", "0"},
+		{"created_at", "CURRENT_TIMESTAMP"},
+	}
+	expressions := map[string]string{}
+	for _, column := range optional {
+		exists, err := backupSrcColumnExists(tx, "browser_proxies", column.name)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			expressions[column.name] = fmt.Sprintf("COALESCE(s.%s,%s)", column.name, column.fallback)
+		} else {
+			expressions[column.name] = column.fallback
+		}
+	}
+
+	columns := `proxy_id, proxy_name, proxy_config, preferred_kernel, dns_servers, group_name, group_id, source_id, source_url, source_name_prefix, source_user_agent, source_user_agent_fallback, source_auto_refresh, source_refresh_interval_m, source_last_refresh_at, last_latency_ms, last_test_ok, last_tested_at, last_ip_health_json, sort_order, created_at`
+	selectList := fmt.Sprintf(`s.proxy_id, s.proxy_name, s.proxy_config, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s`,
+		expressions["preferred_kernel"], expressions["dns_servers"], expressions["group_name"], expressions["group_id"],
+		expressions["source_id"], expressions["source_url"], expressions["source_name_prefix"], expressions["source_user_agent"],
+		expressions["source_user_agent_fallback"], expressions["source_auto_refresh"], expressions["source_refresh_interval_m"], expressions["source_last_refresh_at"],
+		expressions["last_latency_ms"], expressions["last_test_ok"], expressions["last_tested_at"], expressions["last_ip_health_json"],
+		expressions["sort_order"], expressions["created_at"])
+
+	query := fmt.Sprintf("INSERT INTO browser_proxies (%s) SELECT %s FROM src.browser_proxies s", columns, selectList)
+	if !resetFirst {
+		query += ` WHERE NOT EXISTS (
+  SELECT 1 FROM browser_proxies t
+  WHERE t.proxy_id = s.proxy_id OR lower(t.proxy_config) = lower(s.proxy_config)
+)`
+	}
+	return query, nil
 }

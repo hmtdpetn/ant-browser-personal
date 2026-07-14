@@ -204,7 +204,43 @@ var migrations = []migration{
 			`ALTER TABLE browser_proxies ADD COLUMN preferred_kernel TEXT NOT NULL DEFAULT ''`,
 		},
 	},
+	{
+		version: 13,
+		desc:    "Save subscription User-Agent strategy",
+		stmts: []string{
+			`ALTER TABLE browser_proxies ADD COLUMN source_user_agent TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE browser_proxies ADD COLUMN source_user_agent_fallback INTEGER NOT NULL DEFAULT 1`,
+		},
+	},
 	// ── 新版本在此追加，格式：
+	{
+		version: 14,
+		desc:    "Add persistent hierarchical proxy groups",
+		stmts: []string{
+			`CREATE TABLE IF NOT EXISTS browser_proxy_groups (
+				group_id TEXT PRIMARY KEY,
+				group_name TEXT NOT NULL,
+				parent_id TEXT NOT NULL DEFAULT '',
+				sort_order INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_browser_proxy_groups_parent_id ON browser_proxy_groups(parent_id)`,
+			`ALTER TABLE browser_proxies ADD COLUMN group_id TEXT NOT NULL DEFAULT ''`,
+			`INSERT INTO browser_proxy_groups (group_id, group_name, parent_id, sort_order, created_at, updated_at)
+			 SELECT lower(hex(randomblob(16))), MIN(trim(group_name)), '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+			 FROM browser_proxies
+			 WHERE trim(COALESCE(group_name, '')) != ''
+			 GROUP BY lower(trim(group_name))`,
+			`UPDATE browser_proxies
+			 SET group_id = COALESCE((
+				 SELECT group_id FROM browser_proxy_groups
+				 WHERE parent_id = '' AND lower(group_name) = lower(trim(browser_proxies.group_name))
+				 ORDER BY created_at ASC LIMIT 1
+			 ), '')
+			 WHERE trim(COALESCE(group_name, '')) != '' AND group_id = ''`,
+		},
+	},
 	// {
 	//     version: 4,
 	//     desc:    "描述本次变更",

@@ -10,21 +10,18 @@ interface ProxyPoolTableCardProps {
   allFilteredSelected: boolean
   checkingIPHealthIds: Set<string>
   data: ProxyDisplayInfo[]
-  filterGroup: string
   filterKeyword: string
   filterProtocol: string
   filterAvailableOnly: boolean
   globalAutoRefreshEnabled: boolean
   globalRefreshInterval: number
   globalRefreshIntervalM: string
-  groups: string[]
   ipHealthMap: Record<string, ProxyIPHealthResult>
   loading: boolean
   onCheckOneIPHealth: (record: ProxyDisplayInfo) => void
   onClearFilters: () => void
   onDelete: (proxyId: string) => void
   onEdit: (record: ProxyDisplayInfo) => void
-  onFilterGroupChange: (nextValue: string) => void
   onFilterKeywordChange: (nextValue: string) => void
   onFilterProtocolChange: (nextValue: string) => void
   onFilterAvailableOnlyChange: (checked: boolean) => void
@@ -57,21 +54,18 @@ export function ProxyPoolTableCard({
   allFilteredSelected,
   checkingIPHealthIds,
   data,
-  filterGroup,
   filterKeyword,
   filterProtocol,
   filterAvailableOnly,
   globalAutoRefreshEnabled,
   globalRefreshInterval,
   globalRefreshIntervalM,
-  groups,
   ipHealthMap,
   loading,
   onCheckOneIPHealth,
   onClearFilters,
   onDelete,
   onEdit,
-  onFilterGroupChange,
   onFilterKeywordChange,
   onFilterProtocolChange,
   onFilterAvailableOnlyChange,
@@ -99,7 +93,8 @@ export function ProxyPoolTableCard({
   warmingBridgeIds,
   warmingAllBridges,
 }: ProxyPoolTableCardProps) {
-  const hasActiveFilters = filterProtocol !== 'all' || !!filterKeyword || filterGroup !== 'all' || filterAvailableOnly
+  const hasActiveFilters = filterProtocol !== 'all' || !!filterKeyword || filterAvailableOnly
+  const hasSelectableRows = data.some(item => !BUILTIN_PROXY_IDS.has(item.proxyId))
 
   const renderLatency = (record: ProxyDisplayInfo) => {
     if (record.proxyConfig === 'direct://') {
@@ -344,14 +339,6 @@ export function ProxyPoolTableCard({
             <option key={protocol} value={protocol}>{protocol === 'all' ? '全部协议' : protocol.toUpperCase()}</option>
           ))}
         </select>
-        <select
-          value={filterGroup}
-          onChange={event => onFilterGroupChange(event.target.value)}
-          className="h-9 px-3 text-sm rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-border-strong)] transition-colors duration-150"
-        >
-          <option value="all">全部分组</option>
-          {groups.map(group => <option key={group} value={group}>{group}</option>)}
-        </select>
         {hasActiveFilters && (
           <Button size="sm" variant="ghost" onClick={onClearFilters}>清除筛选</Button>
         )}
@@ -382,7 +369,7 @@ export function ProxyPoolTableCard({
           <span className="text-xs text-[var(--color-text-muted)]">分钟</span>
         </div>
         <div className="flex-1" />
-        {data.length > 0 && (
+        {hasSelectableRows && (
           <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] cursor-pointer select-none">
             <input
               type="checkbox"

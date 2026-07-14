@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import type { BrowserCore, BrowserProfile } from '../../types'
+import type { BrowserCore, BrowserGroupWithCount, BrowserProfile } from '../../types'
 import { EMPTY_FILTERS, type InstanceFilters } from '../../components/InstanceFilterBar'
 import type { BrowserViewMode } from '../../components/BrowserListLayout'
 
@@ -63,6 +63,7 @@ export function useBrowserListViewState() {
 export function useBrowserListDerived(
   profiles: BrowserProfile[],
   cores: BrowserCore[],
+  groups: BrowserGroupWithCount[],
   filters: InstanceFilters,
   startingIds: Set<string>,
   stoppingIds: Set<string>
@@ -107,11 +108,27 @@ export function useBrowserListDerived(
     resolveProfileStatus(profile.running, profile.debugReady, isProfileStarting(profile.profileId), isProfileStopping(profile.profileId))
   )
 
+  const selectedGroupIds = useMemo(() => {
+    if (!filters.groupId || filters.groupId === '__ungrouped__') return null
+    const selected = new Set<string>([filters.groupId])
+    let changed = true
+    while (changed) {
+      changed = false
+      groups.forEach(group => {
+        if (group.parentId && selected.has(group.parentId) && !selected.has(group.groupId)) {
+          selected.add(group.groupId)
+          changed = true
+        }
+      })
+    }
+    return selected
+  }, [filters.groupId, groups])
+
   const filteredProfiles = useMemo(() => {
     const unifiedKeyword = filters.keyword || filters.kwSearch
     return profiles.filter(profile => {
       if (filters.groupId === '__ungrouped__' && profile.groupId) return false
-      if (filters.groupId && filters.groupId !== '__ungrouped__' && profile.groupId !== filters.groupId) return false
+      if (selectedGroupIds && !selectedGroupIds.has(profile.groupId || '')) return false
       if (unifiedKeyword && !matchesProfileKeyword(profile, unifiedKeyword)) return false
       if (filters.status === 'running' && !profile.running) return false
       if (filters.status === 'stopped' && profile.running) return false
@@ -124,7 +141,7 @@ export function useBrowserListDerived(
       if (filters.tags.size > 0 && !profile.tags?.some(tag => filters.tags.has(tag))) return false
       return true
     }).sort((a, b) => naturalCompare(a.profileName, b.profileName))
-  }, [profiles, filters, defaultCore, cores])
+  }, [profiles, filters, selectedGroupIds, defaultCore, cores])
 
   return {
     runningCount,

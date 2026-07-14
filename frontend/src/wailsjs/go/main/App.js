@@ -418,8 +418,28 @@ export function BrowserProxyFetchClashByURL(arg1) {
   return window['go']['main']['App']['BrowserProxyFetchClashByURL'](arg1);
 }
 
+export function BrowserProxyFetchClashByURLWithOptions(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyFetchClashByURLWithOptions'](arg1, arg2);
+}
+
 export function BrowserProxyFetchClashByURLWithProxy(arg1, arg2) {
   return window['go']['main']['App']['BrowserProxyFetchClashByURLWithProxy'](arg1, arg2);
+}
+
+export function BrowserProxyGroupCreate(arg1) {
+  return window['go']['main']['App']['BrowserProxyGroupCreate'](arg1);
+}
+
+export function BrowserProxyGroupDelete(arg1) {
+  return window['go']['main']['App']['BrowserProxyGroupDelete'](arg1);
+}
+
+export function BrowserProxyGroupList() {
+  return window['go']['main']['App']['BrowserProxyGroupList']();
+}
+
+export function BrowserProxyGroupUpdate(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyGroupUpdate'](arg1, arg2);
 }
 
 export function BrowserProxyList() {
@@ -434,12 +454,20 @@ export function BrowserProxyListGroups() {
   return window['go']['main']['App']['BrowserProxyListGroups']();
 }
 
+export function BrowserProxyMoveToGroup(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProxyMoveToGroup'](arg1, arg2);
+}
+
 export function BrowserProxyProbeBrowserPage(arg1) {
   return window['go']['main']['App']['BrowserProxyProbeBrowserPage'](arg1);
 }
 
 export function BrowserProxyResolveLocation(arg1) {
   return window['go']['main']['App']['BrowserProxyResolveLocation'](arg1);
+}
+
+export function BrowserProxySubscriptionUserAgents() {
+  return window['go']['main']['App']['BrowserProxySubscriptionUserAgents']();
 }
 
 export function BrowserProxyTestSpeed(arg1) {

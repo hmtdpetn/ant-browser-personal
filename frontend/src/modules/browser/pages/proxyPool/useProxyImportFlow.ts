@@ -1,7 +1,8 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { toast } from '../../../../shared/components'
-import type { BrowserProxy } from '../../types'
-import { fetchClashImportFromURL } from '../../api'
+import type { BrowserProxy, BrowserProxyGroupWithCount } from '../../types'
+import { DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS, fetchClashImportFromURL } from '../../api'
+import { resolveSubscriptionUserAgent } from '../../components/SubscriptionUserAgentFields'
 import {
   CHAIN_QUICK_IMPORT_TEMPLATE,
   DIRECT_QUICK_IMPORT_TEMPLATE,
@@ -27,6 +28,7 @@ import { appendSourceIgnoredProxyNames } from './storage'
 
 interface UseProxyImportFlowOptions {
   proxies: BrowserProxy[]
+  groups: BrowserProxyGroupWithCount[]
   globalAutoRefreshEnabled: boolean
   globalRefreshInterval: number
   saveProxies: (list: BrowserProxy[]) => Promise<void>
@@ -42,6 +44,7 @@ function createInitialChainImportForm(): ChainImportForm {
 
 export function useProxyImportFlow({
   proxies,
+  groups,
   globalAutoRefreshEnabled,
   globalRefreshInterval,
   saveProxies,
@@ -50,11 +53,15 @@ export function useProxyImportFlow({
   const [importMode, setImportMode] = useState<ProxyImportMode>('clash')
   const [importUrl, setImportUrl] = useState('')
   const [importFetchProxyId, setImportFetchProxyId] = useState('')
+  const [importUserAgentPreset, setImportUserAgentPreset] = useState(DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS[0].userAgent)
+  const [importCustomUserAgent, setImportCustomUserAgent] = useState('')
+  const [importUserAgentFallback, setImportUserAgentFallback] = useState(true)
   const [importResolvedUrl, setImportResolvedUrl] = useState('')
   const [importText, setImportText] = useState('')
   const [importDnsServers, setImportDnsServers] = useState('')
   const [importNamePrefix, setImportNamePrefix] = useState('')
   const [importGroupName, setImportGroupName] = useState('')
+  const [importGroupId, setImportGroupId] = useState('')
   const [chainImportText, setChainImportText] = useState('')
   const [directImportText, setDirectImportText] = useState('')
   const [chainImportForm, setChainImportForm] = useState<ChainImportForm>(() => createInitialChainImportForm())
@@ -126,6 +133,7 @@ export function useProxyImportFlow({
       const { form, groupName } = parseChainImportJSON(chainImportText)
       setChainImportForm(form)
       setImportGroupName(groupName)
+      setImportGroupId(groups.find(group => group.groupName === groupName)?.groupId || '')
       toast.success('JSON 已应用')
     } catch (error: any) {
       toast.error(error?.message || 'JSON 应用失败')
@@ -136,7 +144,10 @@ export function useProxyImportFlow({
     try {
       const { form, groupName } = parseDirectImportText(directImportText)
       setDirectImportForm(form)
-      if (groupName) setImportGroupName(groupName)
+      if (groupName) {
+        setImportGroupName(groupName)
+        setImportGroupId(groups.find(group => group.groupName === groupName)?.groupId || '')
+      }
       setDirectImportText('')
       toast.success('文本已应用')
     } catch (error: any) {
@@ -160,7 +171,13 @@ export function useProxyImportFlow({
 
     setFetchingImportUrl(true)
     try {
-      const result = await fetchClashImportFromURL(targetURL, importFetchProxyId)
+      const selectedUserAgent = resolveSubscriptionUserAgent(importUserAgentPreset, importCustomUserAgent)
+      if (!selectedUserAgent) throw new Error('请选择 User-Agent')
+      const result = await fetchClashImportFromURL(targetURL, {
+        proxyId: importFetchProxyId,
+        userAgent: selectedUserAgent,
+        fallbackEnabled: importUserAgentFallback,
+      })
       const content = (result?.content || '').trim()
       if (!content) throw new Error('订阅内容为空')
 
@@ -171,7 +188,9 @@ export function useProxyImportFlow({
         setImportDnsServers(result.dnsServers.trim())
       }
       if (!importGroupName.trim() && typeof result?.suggestedGroup === 'string' && result.suggestedGroup.trim()) {
-        setImportGroupName(result.suggestedGroup.trim())
+        const suggestedName = result.suggestedGroup.trim()
+        setImportGroupName(suggestedName)
+        setImportGroupId(groups.find(group => group.groupName === suggestedName)?.groupId || '')
       }
 
       toast.success(`URL 获取成功，检测到 ${Math.max(0, Number(result?.proxyCount || 0))} 个代理`)
@@ -187,7 +206,8 @@ export function useProxyImportFlow({
     try {
       const prefix = importNamePrefix.trim()
       let candidates
-      let previewGroupName = importGroupName.trim()
+      const selectedImportGroup = groups.find(group => group.groupId === importGroupId)
+      let previewGroupName = selectedImportGroup?.groupName || importGroupName.trim()
       if (importMode === 'clash') {
         candidates = buildImportCandidatesFromClash(parseClashImportText(importText), prefix)
       } else if (importMode === 'direct') {
@@ -205,7 +225,11 @@ export function useProxyImportFlow({
         toast.error('未解析到可导入代理')
         return
       }
-      const preview = buildImportPreview(candidates, previewGroupName)
+      const preview = buildImportPreview(candidates, previewGroupName).map(item => ({
+        ...item,
+        groupId: importGroupId || '',
+        groupName: selectedImportGroup?.groupName || item.groupName,
+      }))
       setRemovedPreviewProxyNames([])
       setPreviewList(preview)
       setImportModalOpen(false)
@@ -242,10 +266,13 @@ export function useProxyImportFlow({
         proxyConfig: p.proxyConfig,
         preferredKernel: existingProxy?.preferredKernel || undefined,
         dnsServers: importMode === 'clash' ? importDnsServers.trim() || undefined : undefined,
+        groupId: p.groupId || undefined,
         groupName: p.groupName.trim() || undefined,
         sourceId: sourceID || undefined,
         sourceUrl: sourceURL || undefined,
         sourceNamePrefix: sourceNamePrefix || undefined,
+        sourceUserAgent: isURLImport ? resolveSubscriptionUserAgent(importUserAgentPreset, importCustomUserAgent) : undefined,
+        sourceUserAgentFallback: isURLImport ? importUserAgentFallback : undefined,
         sourceAutoRefresh,
         sourceRefreshIntervalM,
         sourceLastRefreshAt: sourceLastRefreshAt || undefined,
@@ -261,11 +288,15 @@ export function useProxyImportFlow({
       setPreviewModalOpen(false)
       setImportUrl('')
       setImportFetchProxyId('')
+      setImportUserAgentPreset(DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS[0].userAgent)
+      setImportCustomUserAgent('')
+      setImportUserAgentFallback(true)
       setImportResolvedUrl('')
       setImportText('')
       setImportDnsServers('')
       setImportNamePrefix('')
       setImportGroupName('')
+      setImportGroupId('')
       setChainImportText('')
       setDirectImportText('')
       setChainImportForm(createInitialChainImportForm())
@@ -290,11 +321,11 @@ export function useProxyImportFlow({
         && !!chainImportForm.second.port.trim()
 
   return {
-    importModalOpen, setImportModalOpen, importMode, importUrl, importFetchProxyId, importResolvedUrl, importText,
-    importDnsServers, importNamePrefix, importGroupName, chainImportText, directImportText,
+    importModalOpen, setImportModalOpen, importMode, importUrl, importFetchProxyId, importUserAgentPreset, importCustomUserAgent, importUserAgentFallback, importResolvedUrl, importText,
+    importDnsServers, importNamePrefix, importGroupName, importGroupId, chainImportText, directImportText,
     chainImportForm, directImportForm, previewModalOpen, setPreviewModalOpen, previewList, removedPreviewProxyNames,
     importing, fetchingImportUrl, canParseImport, setImportText, setImportDnsServers,
-    setImportNamePrefix, setImportGroupName, setImportFetchProxyId, setChainImportText, setDirectImportText,
+    setImportNamePrefix, setImportGroupName, setImportGroupId, setImportFetchProxyId, setImportUserAgentPreset, setImportCustomUserAgent, setImportUserAgentFallback, setChainImportText, setDirectImportText,
     setChainImportForm, setDirectImportForm, handleRemovePreviewProxy, updateChainImportHop,
     handleImportModeChange, handleFillChainTemplate, handleFillDirectTemplate, handleCopyChainTemplate,
     handleCopyDirectTemplate, handleApplyChainJSON, handleApplyDirectText, handleImportUrlChange,

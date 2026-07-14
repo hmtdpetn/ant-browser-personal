@@ -138,9 +138,12 @@ export interface BrowserProxy {
   preferredKernel?: 'auto' | 'xray' | 'sing-box' | 'mihomo' | string
   dnsServers?: string
   groupName?: string
+  groupId?: string
   sourceId?: string
   sourceUrl?: string
   sourceNamePrefix?: string
+  sourceUserAgent?: string
+  sourceUserAgentFallback?: boolean
   sourceAutoRefresh?: boolean
   sourceRefreshIntervalM?: number
   sourceLastRefreshAt?: string
@@ -148,6 +151,25 @@ export interface BrowserProxy {
   lastTestOk?: boolean
   lastTestedAt?: string
   lastIPHealthJson?: string
+}
+
+export interface BrowserProxyGroup {
+  groupId: string
+  groupName: string
+  parentId: string
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BrowserProxyGroupInput {
+  groupName: string
+  parentId: string
+  sortOrder: number
+}
+
+export interface BrowserProxyGroupWithCount extends BrowserProxyGroup {
+  proxyCount: number
 }
 
 export interface ProxyIPHealthResult {

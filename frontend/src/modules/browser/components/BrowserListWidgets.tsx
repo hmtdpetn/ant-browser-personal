@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Archive, ChevronDown, ChevronUp, Copy, Download, Pencil, Play, RefreshCw, Square, Trash2 } from 'lucide-react'
+import { Archive, ChevronDown, ChevronUp, Copy, Download, FolderInput, Pencil, Play, RefreshCw, Square, Trash2 } from 'lucide-react'
 
 import { Button, toast } from '../../../shared/components'
+import type { BrowserGroup } from '../types'
 import { regenerateBrowserProfileCode, setBrowserProfileCode } from '../api'
+import { GroupSelector } from './GroupSelector'
 
 interface BatchToolbarProps {
   selectedCount: number
@@ -14,7 +16,12 @@ interface BatchToolbarProps {
   onBatchExport: () => void
   onOpenBackup: () => void
   onBatchDelete: () => void
+  groups: BrowserGroup[]
+  moveTargetGroupId: string
+  onMoveTargetGroupChange: (groupId: string) => void
+  onBatchMove: () => void
   batchLoading: boolean
+  moving?: boolean
   exporting?: boolean
 }
 
@@ -28,17 +35,42 @@ export function BatchToolbar({
   onBatchExport,
   onOpenBackup,
   onBatchDelete,
+  groups,
+  moveTargetGroupId,
+  onMoveTargetGroupChange,
+  onBatchMove,
   batchLoading,
+  moving = false,
   exporting = false,
 }: BatchToolbarProps) {
   if (selectedCount === 0) return null
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 rounded-lg">
-      <span className="text-sm font-medium text-[var(--color-accent)]">已选 {selectedCount} / {totalCount}</span>
-      <div className="flex gap-1.5 ml-auto">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/10 px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-[var(--color-accent)] px-2 py-1 text-xs font-semibold text-[var(--color-text-inverse)]">
+          {selectedCount}
+        </span>
+        <span className="text-sm font-medium text-[var(--color-text-primary)]">个实例已选择</span>
+        <span className="text-xs text-[var(--color-text-muted)]">当前列表 {totalCount} 个</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2.5 py-2">
+        <FolderInput className="h-4 w-4 text-[var(--color-accent)]" />
+        <span className="text-xs font-medium text-[var(--color-text-secondary)]">移动到</span>
+        <GroupSelector
+          groups={groups}
+          value={moveTargetGroupId}
+          onChange={onMoveTargetGroupChange}
+          placeholder="未分组"
+          className="min-w-[190px]"
+        />
+        <Button size="sm" onClick={onBatchMove} loading={moving}>确认移动</Button>
+      </div>
+
+      <div className="ml-auto flex flex-wrap gap-1.5">
         <Button size="sm" variant="ghost" onClick={onSelectAll}>全选</Button>
-        <Button size="sm" variant="ghost" onClick={onDeselectAll}>取消</Button>
+        <Button size="sm" variant="ghost" onClick={onDeselectAll}>取消选择</Button>
         <Button size="sm" onClick={onBatchStart} loading={batchLoading} title="批量启动">
           <Play className="w-3.5 h-3.5" />启动
         </Button>

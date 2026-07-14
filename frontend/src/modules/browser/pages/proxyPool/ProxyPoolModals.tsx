@@ -1,6 +1,7 @@
-import { Button, FormItem, Input, Modal, Select, Table, Textarea } from '../../../../shared/components'
+﻿import { Button, FormItem, Input, Modal, Select, Table, Textarea } from '../../../../shared/components'
 import type { TableColumn } from '../../../../shared/components/Table'
-import type { ProxyIPHealthResult } from '../../types'
+import type { BrowserProxyGroupWithCount, ProxyIPHealthResult } from '../../types'
+import { ProxyGroupSelect } from '../../components/ProxyGroupSelect'
 
 import {
   type ChainImportForm,
@@ -13,7 +14,7 @@ export interface ProxyEditFormValue {
   proxyConfig: string
   preferredKernel: string
   dnsServers: string
-  groupName: string
+  groupId: string
 }
 
 export { ProxyPoolImportModal } from './ProxyPoolImportModal'
@@ -95,7 +96,7 @@ export function ProxyPoolPreviewModal({
 interface ProxyPoolEditModalProps {
   open: boolean
   saving: boolean
-  groups: string[]
+  groups: BrowserProxyGroupWithCount[]
   editForm: ProxyEditFormValue
   chainEditMode: boolean
   chainEditForm: ChainImportForm
@@ -150,18 +151,12 @@ export function ProxyPoolEditModal({
             placeholder="节点名称"
           />
         </FormItem>
-        <FormItem label="分组名称（可选）">
-          <Input
-            value={editForm.groupName}
-            onChange={(event) => onChange({ groupName: event.target.value })}
-            placeholder="分组名称"
-            list="edit-proxy-groups-datalist"
+        <FormItem label="所属分组（可选）">
+          <ProxyGroupSelect
+            groups={groups}
+            value={editForm.groupId}
+            onChange={(groupId) => onChange({ groupId })}
           />
-          <datalist id="edit-proxy-groups-datalist">
-            {groups.map((group) => (
-              <option key={group} value={group} />
-            ))}
-          </datalist>
         </FormItem>
         <FormItem label="代理内核">
           <Select

@@ -1,4 +1,4 @@
-﻿# OS
+# OS
 .DS_Store
 Thumbs.db
 
@@ -60,8 +60,10 @@ publish/output/
 # Portable release output
 dist/
 
-# Internal docs / scratch files
-docs/
+# Internal docs / scratch files (keep handoff documents)
+docs/*
+!docs/handoff/
+!docs/handoff/*.md
 DEPLOYMENT_GUIDE.md
 plan.md
 pic/

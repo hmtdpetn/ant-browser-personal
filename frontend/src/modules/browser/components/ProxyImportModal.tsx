@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Button, toast } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
 import type { BrowserProxy } from '../types'
-import { fetchClashImportFromURL, saveBrowserProxies } from '../api'
+import { DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS, fetchClashImportFromURL, saveBrowserProxies } from '../api'
 import { DIRECT_QUICK_IMPORT_TEMPLATE, buildDirectImportCandidatesFromText, parseDirectImportText } from '../pages/proxyPool/helpers'
 import {
   INITIAL_CHAIN_IMPORT_FORM,
@@ -26,6 +26,7 @@ import {
   resolveImportSourceID,
 } from './ProxyImportModal.helpers'
 import { ProxyImportModalView } from './ProxyImportModalView'
+import { resolveSubscriptionUserAgent } from './SubscriptionUserAgentFields'
 
 export function ProxyImportModal({
   open,
@@ -39,6 +40,9 @@ export function ProxyImportModal({
   const [importMode, setImportMode] = useState<ProxyImportMode>('clash')
   const [importUrl, setImportUrl] = useState('')
   const [importFetchProxyId, setImportFetchProxyId] = useState('')
+  const [importUserAgentPreset, setImportUserAgentPreset] = useState(DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS[0].userAgent)
+  const [importCustomUserAgent, setImportCustomUserAgent] = useState('')
+  const [importUserAgentFallback, setImportUserAgentFallback] = useState(true)
   const [importResolvedUrl, setImportResolvedUrl] = useState('')
   const [importText, setImportText] = useState('')
   const [importDnsServers, setImportDnsServers] = useState('')
@@ -61,6 +65,9 @@ export function ProxyImportModal({
     setImportMode('clash')
     setImportUrl('')
     setImportFetchProxyId('')
+    setImportUserAgentPreset(DEFAULT_CLASH_SUBSCRIPTION_USER_AGENTS[0].userAgent)
+    setImportCustomUserAgent('')
+    setImportUserAgentFallback(true)
     setImportResolvedUrl('')
     setImportText('')
     setImportDnsServers('')
@@ -101,7 +108,13 @@ export function ProxyImportModal({
 
     setFetchingImportUrl(true)
     try {
-      const result = await fetchClashImportFromURL(targetURL, importFetchProxyId)
+      const selectedUserAgent = resolveSubscriptionUserAgent(importUserAgentPreset, importCustomUserAgent)
+      if (!selectedUserAgent) throw new Error('请选择 User-Agent')
+      const result = await fetchClashImportFromURL(targetURL, {
+        proxyId: importFetchProxyId,
+        userAgent: selectedUserAgent,
+        fallbackEnabled: importUserAgentFallback,
+      })
       const content = (result?.content || '').trim()
       if (!content) {
         throw new Error('订阅内容为空')
@@ -221,6 +234,8 @@ export function ProxyImportModal({
         sourceId: sourceID || undefined,
         sourceUrl: sourceURL || undefined,
         sourceNamePrefix: sourceNamePrefix || undefined,
+        sourceUserAgent: isURLImport ? resolveSubscriptionUserAgent(importUserAgentPreset, importCustomUserAgent) : undefined,
+        sourceUserAgentFallback: isURLImport ? importUserAgentFallback : undefined,
         sourceAutoRefresh,
         sourceRefreshIntervalM,
         sourceLastRefreshAt: sourceLastRefreshAt || undefined,
@@ -286,6 +301,9 @@ export function ProxyImportModal({
       importMode={importMode}
       importUrl={importUrl}
       importFetchProxyId={importFetchProxyId}
+      importUserAgentPreset={importUserAgentPreset}
+      importCustomUserAgent={importCustomUserAgent}
+      importUserAgentFallback={importUserAgentFallback}
       importResolvedUrl={importResolvedUrl}
       importText={importText}
       importDnsServers={importDnsServers}
@@ -304,6 +322,9 @@ export function ProxyImportModal({
       onImportModeChange={handleImportModeChange}
       onImportUrlChange={setImportUrl}
       onImportFetchProxyIdChange={setImportFetchProxyId}
+      onImportUserAgentPresetChange={setImportUserAgentPreset}
+      onImportCustomUserAgentChange={setImportCustomUserAgent}
+      onImportUserAgentFallbackChange={setImportUserAgentFallback}
       onImportResolvedUrlChange={setImportResolvedUrl}
       onFetchImportURL={handleFetchImportURL}
       onImportTextChange={setImportText}

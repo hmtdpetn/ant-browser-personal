@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Filter, X } from 'lucide-react'
 import { Input, Select } from '../../../shared/components'
 import { TagFilterBar } from './TagFilterBar'
-import type { BrowserCore, BrowserProxy, BrowserGroupWithCount } from '../types'
+import type { BrowserCore, BrowserProxy } from '../types'
 
 export interface InstanceFilters {
   keyword: string
@@ -34,10 +34,9 @@ interface Props {
   proxies: BrowserProxy[]
   cores: BrowserCore[]
   allTags: string[]
-  groups: BrowserGroupWithCount[]
 }
 
-export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, groups }: Props) {
+export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags }: Props) {
   const [collapsed, setCollapsed] = useState(false)
 
   const set = <K extends keyof InstanceFilters>(key: K, value: InstanceFilters[K]) =>
@@ -98,16 +97,6 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
               options={[
                 { value: '', label: '全部内核' },
                 ...cores.map(c => ({ value: c.coreId, label: c.coreName })),
-              ]}
-              style={{ width: '140px' }}
-            />
-            <Select
-              value={filters.groupId}
-              onChange={e => set('groupId', e.target.value)}
-              options={[
-                { value: '', label: '全部分组' },
-                { value: '__ungrouped__', label: '未分组' },
-                ...groups.map(g => ({ value: g.groupId, label: g.groupName })),
               ]}
               style={{ width: '140px' }}
             />

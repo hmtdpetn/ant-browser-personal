@@ -10,6 +10,18 @@ func (a *App) SaveBrowserProxies(proxies []BrowserProxy) error {
 	log := logger.New("Browser")
 	normalized := proxy.NormalizeBrowserProxies(proxies, generateUUID)
 
+	if a.browserMgr.ProxyGroupDAO != nil {
+		for i := range normalized {
+			groupID, groupName, err := a.browserMgr.ProxyGroupDAO.ResolveAssignment(normalized[i].GroupId, normalized[i].GroupName)
+			if err != nil {
+				log.Error("Resolve proxy group failed", logger.F("proxy_id", normalized[i].ProxyId), logger.F("error", err))
+				return err
+			}
+			normalized[i].GroupId = groupID
+			normalized[i].GroupName = groupName
+		}
+	}
+
 	a.config.Browser.Proxies = normalized
 
 	if a.browserMgr.ProxyDAO != nil {

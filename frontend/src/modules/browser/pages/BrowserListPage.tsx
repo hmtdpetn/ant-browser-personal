@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from '../../../shared/components'
 import type { BrowserProfile, BrowserProfileCopyOptions, BrowserProxy } from '../types'
 import { BrowserCoreEditorModal, BrowserListHeader, BrowserListSettingsModal } from '../components/BrowserListLayout'
@@ -6,6 +6,7 @@ import { BatchToolbar } from '../components/BrowserListWidgets'
 import { BrowserProfilesPanel } from '../components/BrowserProfilesPanel'
 import { BrowserBackupModal } from '../components/BrowserBackupModal'
 import { GroupManagerModal } from '../components/GroupManagerModal'
+import { GroupTreeNav } from '../components/GroupTreeNav'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
 import { ProfileExtensionModal } from '../components/ProfileExtensionModal'
 import { createBrowserProfileCopyOptions, isBrowserProfileCopyOptionsValid } from '../copyOptions'
@@ -23,6 +24,7 @@ import {
   exportBrowserProfilePackage,
   fetchBrowserProfileTrash,
   importBrowserProfilePackage,
+  moveInstancesToGroup,
   permanentlyDeleteBrowserProfile,
   restoreBrowserProfile,
   startBrowserInstance,
@@ -46,8 +48,25 @@ export function BrowserListPage() {
     setHeaderCollapsed,
   } = useBrowserListViewState()
 
+  const [groupSidebarCollapsed, setGroupSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('ant-browser.instance-groups.collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('ant-browser.instance-groups.collapsed', String(groupSidebarCollapsed))
+    } catch {
+      // Local preference persistence is optional.
+    }
+  }, [groupSidebarCollapsed])
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchLoading, setBatchLoading] = useState(false)
+  const [batchMoving, setBatchMoving] = useState(false)
+  const [moveTargetGroupId, setMoveTargetGroupId] = useState('')
   const [profilePackageBusy, setProfilePackageBusy] = useState(false)
   const [backupModalOpen, setBackupModalOpen] = useState(false)
   const [groupManagerOpen, setGroupManagerOpen] = useState(false)
@@ -158,7 +177,7 @@ export function BrowserListPage() {
     isProfileStopping,
     isProfileBusy,
     getProfileStatus,
-  } = useBrowserListDerived(profiles, cores, filters, startingIds, stoppingIds)
+  } = useBrowserListDerived(profiles, cores, groups, filters, startingIds, stoppingIds)
   const {
     handleStart,
     handleStartDirect,
@@ -204,6 +223,24 @@ export function BrowserListPage() {
 
   const handleDeselectAll = () => {
     setSelectedIds(new Set())
+  }
+
+  const handleBatchMove = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    setBatchMoving(true)
+    try {
+      await moveInstancesToGroup(ids, moveTargetGroupId)
+      await Promise.all([loadProfiles(), loadGroups()])
+      setSelectedIds(new Set())
+      const targetName = groups.find(group => group.groupId === moveTargetGroupId)?.groupName || '未分组'
+      toast.success(`已将 ${ids.length} 个实例移动到“${targetName}”`)
+    } catch (error: any) {
+      toast.error(error?.message || '移动实例失败')
+    } finally {
+      setBatchMoving(false)
+    }
   }
 
   const handleBatchStart = async () => {
@@ -525,7 +562,6 @@ export function BrowserListPage() {
         viewMode={viewMode}
         proxies={proxies}
         cores={cores}
-        groups={groups}
         allTags={allTags}
         filters={filters}
         onFiltersChange={setFilters}
@@ -548,59 +584,79 @@ export function BrowserListPage() {
       />
 
       {/* 批量操作工具栏 */}
-      <BatchToolbar
-        selectedCount={selectedIds.size}
-        totalCount={filteredProfiles.length}
-        onSelectAll={handleSelectAll}
-        onDeselectAll={handleDeselectAll}
-        onBatchStart={handleBatchStart}
-        onBatchStop={handleBatchStop}
-        onBatchExport={handleBatchExport}
-        onOpenBackup={() => setBackupModalOpen(true)}
-        onBatchDelete={openBatchDeleteConfirm}
-        batchLoading={batchLoading}
-        exporting={profilePackageBusy}
-      />
+      <div className={groupSidebarCollapsed ? 'grid min-h-0 items-start gap-3 lg:grid-cols-[56px_minmax(0,1fr)]' : 'grid min-h-0 items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]'}>
+        <GroupTreeNav
+          groups={groups}
+          selectedGroupId={filters.groupId || null}
+          totalCount={profiles.length}
+          ungroupedCount={profiles.filter(profile => !profile.groupId).length}
+          onSelectGroup={(groupId) => setFilters(previous => ({ ...previous, groupId: groupId || '' }))}
+          onRefresh={handleGroupsChanged}
+          onOpenManager={() => setGroupManagerOpen(true)}
+          collapsed={groupSidebarCollapsed}
+          onToggleCollapsed={() => setGroupSidebarCollapsed(previous => !previous)}
+        />
+        <main className="min-w-0 space-y-5">
+          <BatchToolbar
+            selectedCount={selectedIds.size}
+            totalCount={filteredProfiles.length}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onBatchStart={handleBatchStart}
+            onBatchStop={handleBatchStop}
+            onBatchExport={handleBatchExport}
+            onOpenBackup={() => setBackupModalOpen(true)}
+            onBatchDelete={openBatchDeleteConfirm}
+            groups={groups}
+            moveTargetGroupId={moveTargetGroupId}
+            onMoveTargetGroupChange={setMoveTargetGroupId}
+            onBatchMove={() => { void handleBatchMove() }}
+            batchLoading={batchLoading}
+            moving={batchMoving}
+            exporting={profilePackageBusy}
+          />
 
-      <BrowserBackupModal
-        open={backupModalOpen}
-        runningCount={runningCount}
-        selectedCount={selectedIds.size}
-        selectedExporting={profilePackageBusy}
-        loadingMode={backupLoadingMode}
-        onClose={() => setBackupModalOpen(false)}
-        onExportSelected={() => { void handleBatchExport() }}
-        onExportFull={() => { void handleExportFullBackup() }}
-        onImportMerge={() => { void handleImportFullBackup(false) }}
-        onImportReset={() => { void handleImportFullBackup(true) }}
-      />
+          <BrowserBackupModal
+            open={backupModalOpen}
+            runningCount={runningCount}
+            selectedCount={selectedIds.size}
+            selectedExporting={profilePackageBusy}
+            loadingMode={backupLoadingMode}
+            onClose={() => setBackupModalOpen(false)}
+            onExportSelected={() => { void handleBatchExport() }}
+            onExportFull={() => { void handleExportFullBackup() }}
+            onImportMerge={() => { void handleImportFullBackup(false) }}
+            onImportReset={() => { void handleImportFullBackup(true) }}
+          />
 
-      <BrowserProfilesPanel
-        loading={loading}
-        viewMode={viewMode}
-        profiles={filteredProfiles}
-        proxies={proxies}
-        selectedIds={selectedIds}
-        resolveProfileCore={resolveProfileCore}
-        getProfileCoreLabel={getProfileCoreLabel}
-        getProfileStatus={getProfileStatus}
-        isProfileStarting={isProfileStarting}
-        isProfileStopping={isProfileStopping}
-        isProfileBusy={isProfileBusy}
-        onToggleSelect={toggleSelect}
-        onSelectAll={handleSelectAll}
-        onDeselectAll={handleDeselectAll}
-        onRefreshProfiles={() => { void loadProfiles() }}
-        onStart={(profileId) => { void handleStart(profileId) }}
-        onStop={(profileId) => { void handleStop(profileId) }}
-        onRestart={(profileId) => { void handleRestart(profileId) }}
-        onOpenKeywords={openKwModal}
-        onOpenExtensions={openExtensionModal}
-        onExport={(profile) => { void handleExportProfile(profile) }}
-        onOpenCopy={openCopyModal}
-        onOpenProxyPicker={setProxyPickerProfile}
-        onDelete={openDeleteConfirm}
-      />
+          <BrowserProfilesPanel
+            loading={loading}
+            viewMode={viewMode}
+            profiles={filteredProfiles}
+            proxies={proxies}
+            selectedIds={selectedIds}
+            resolveProfileCore={resolveProfileCore}
+            getProfileCoreLabel={getProfileCoreLabel}
+            getProfileStatus={getProfileStatus}
+            isProfileStarting={isProfileStarting}
+            isProfileStopping={isProfileStopping}
+            isProfileBusy={isProfileBusy}
+            onToggleSelect={toggleSelect}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onRefreshProfiles={() => { void loadProfiles() }}
+            onStart={(profileId) => { void handleStart(profileId) }}
+            onStop={(profileId) => { void handleStop(profileId) }}
+            onRestart={(profileId) => { void handleRestart(profileId) }}
+            onOpenKeywords={openKwModal}
+            onOpenExtensions={openExtensionModal}
+            onExport={(profile) => { void handleExportProfile(profile) }}
+            onOpenCopy={openCopyModal}
+            onOpenProxyPicker={setProxyPickerProfile}
+            onDelete={openDeleteConfirm}
+          />
+        </main>
+      </div>
 
       <ProxyPickerModal
         open={!!proxyPickerProfile}

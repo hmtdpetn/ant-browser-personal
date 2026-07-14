@@ -132,6 +132,7 @@ func (a *App) startupInitManagers(cfg *config.Config, db *database.DB) {
 	a.browserMgr.CoreDAO = browser.NewSQLiteCoreDAO(conn)
 	a.browserMgr.BookmarkDAO = browser.NewSQLiteBookmarkDAO(conn)
 	a.browserMgr.GroupDAO = browser.NewSQLiteGroupDAO(conn)
+	a.browserMgr.ProxyGroupDAO = browser.NewSQLiteProxyGroupDAO(conn)
 	a.browserMgr.ExtensionDAO = browser.NewSQLiteExtensionDAO(conn)
 
 	a.migrateToSQLite()

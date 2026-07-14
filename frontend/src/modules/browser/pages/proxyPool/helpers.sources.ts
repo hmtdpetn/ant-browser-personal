@@ -77,6 +77,9 @@ export function collectURLImportSources(list: BrowserProxy[]): URLImportSourceMe
         sourceId,
         sourceUrl,
         sourceNamePrefix: (item.sourceNamePrefix || '').trim(),
+        sourceUserAgent: (item.sourceUserAgent || '').trim(),
+        sourceUserAgentFallback: item.sourceUserAgentFallback !== false,
+        sourceGroupId: (item.groupId || '').trim(),
         sourceGroupName: (item.groupName || '').trim(),
         sourceDnsServers: (item.dnsServers || '').trim(),
         sourceAutoRefresh: !!item.sourceAutoRefresh,
@@ -140,6 +143,7 @@ export function buildRefreshedSourceProxies(
 ): BrowserProxy[] {
   const pickExisting = createExistingProxyPicker(oldSourceProxies)
   const prefix = meta.sourceNamePrefix.trim()
+  const sourceGroupId = meta.sourceGroupId.trim()
   const sourceGroupName = meta.sourceGroupName.trim()
   const sourceDnsServers = meta.sourceDnsServers.trim()
 
@@ -155,10 +159,13 @@ export function buildRefreshedSourceProxies(
       proxyConfig,
       preferredKernel: existingProxy?.preferredKernel || undefined,
       dnsServers: sourceDnsServers || undefined,
+      groupId: sourceGroupId || undefined,
       groupName: sourceGroupName || undefined,
       sourceId: meta.sourceId,
       sourceUrl: meta.sourceUrl,
       sourceNamePrefix: prefix || undefined,
+      sourceUserAgent: meta.sourceUserAgent || undefined,
+      sourceUserAgentFallback: meta.sourceUserAgentFallback,
       sourceAutoRefresh: meta.sourceAutoRefresh,
       sourceRefreshIntervalM: meta.sourceRefreshIntervalM,
       sourceLastRefreshAt: refreshedAt,
