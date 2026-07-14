@@ -414,6 +414,16 @@ curl -H "X-Ant-Api-Key: <your-api-key>" http://127.0.0.1:19876/api/health
 | 实例管理 | \`DELETE\` | \`/api/profiles/{profileId}\` |
 | 实例管理 | \`GET\` | \`/api/profiles/{profileId}/status\` |
 | 实例管理 | \`POST\` | \`/api/profiles/{profileId}/stop\` |
+| 实例分组 | \`GET\` | \`/api/groups\` |
+| 实例分组 | \`POST\` | \`/api/groups\` |
+| 实例分组 | \`PUT\` | \`/api/groups/{groupId}\` |
+| 实例分组 | \`DELETE\` | \`/api/groups/{groupId}\` |
+| 实例分组 | \`POST\` | \`/api/groups/move-profiles\` |
+| 代理/订阅分组 | \`GET\` | \`/api/proxy-groups\` |
+| 代理/订阅分组 | \`POST\` | \`/api/proxy-groups\` |
+| 代理/订阅分组 | \`PUT\` | \`/api/proxy-groups/{groupId}\` |
+| 代理/订阅分组 | \`DELETE\` | \`/api/proxy-groups/{groupId}\` |
+| 代理/订阅分组 | \`POST\` | \`/api/proxy-groups/move-proxies\` |
 | 启动 | \`GET\` | \`/api/launch/{code}\` |
 | 启动 | \`POST\` | \`/api/launch\` |
 | 运行态 | \`GET\` | \`/api/runtime/active\` |

@@ -308,3 +308,68 @@ selector / params 必须是 JSON object
 不传 selector / params 时，默认沿用脚本内配置
 \`\`\`
 `
+
+export const DOC_API_GROUPS = `# 实例与代理分组 API
+
+## 实例树分组
+
+实例分组可以有子分组。\`parentId\` 为空字符串时表示根分组；\`sortOrder\` 决定同级排列顺序。删除某个分组时，它的直属实例和子分组都会提升到该分组的父分组；删除根分组时会变为未分组。
+
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| \`GET\` | \`/api/groups\` | 列出实例分组及直属实例数量 |
+| \`POST\` | \`/api/groups\` | 新建实例分组 |
+| \`PUT\` | \`/api/groups/{groupId}\` | 更新分组名称、父级或排序 |
+| \`DELETE\` | \`/api/groups/{groupId}\` | 删除并提升成员/子分组 |
+| \`POST\` | \`/api/groups/move-profiles\` | 批量移动实例到分组 |
+
+### 创建分组
+
+\`\`\`bash
+curl -X POST http://127.0.0.1:19876/api/groups \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "groupName": "北美店铺",
+    "parentId": "",
+    "sortOrder": 10
+  }'
+\`\`\`
+
+### 批量移动实例
+
+\`\`\`bash
+curl -X POST http://127.0.0.1:19876/api/groups/move-profiles \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "profileIds": ["profile-id-1", "profile-id-2"],
+    "groupId": "target-instance-group-id"
+  }'
+\`\`\`
+
+\`groupId\` 传空字符串可将这些实例移回未分组。
+
+## 代理/订阅树分组
+
+这里的订阅分组是指订阅导入后保存在代理池中的代理树分组；它管理的是代理成员，不是订阅 URL 或订阅 UA。\`parentId\`、\`sortOrder\` 与删除提升规则和实例分组完全一致。
+
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| \`GET\` | \`/api/proxy-groups\` | 列出代理分组及直属代理数量 |
+| \`POST\` | \`/api/proxy-groups\` | 新建代理/订阅分组 |
+| \`PUT\` | \`/api/proxy-groups/{groupId}\` | 更新分组名称、父级或排序 |
+| \`DELETE\` | \`/api/proxy-groups/{groupId}\` | 删除并提升成员/子分组 |
+| \`POST\` | \`/api/proxy-groups/move-proxies\` | 批量移动代理到分组 |
+
+### 批量移动代理
+
+\`\`\`bash
+curl -X POST http://127.0.0.1:19876/api/proxy-groups/move-proxies \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "proxyIds": ["proxy-id-1", "proxy-id-2"],
+    "groupId": "target-proxy-group-id"
+  }'
+\`\`\`
+
+\`groupId\` 传空字符串可将这些代理移回未分组。所有写操作均使用应用自己的事务；不存在的父分组、循环引用、缺失成员或无效目标组都会失败，批量操作不会部分提交。
+`

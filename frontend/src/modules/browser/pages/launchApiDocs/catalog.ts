@@ -12,6 +12,7 @@ import {
 import { DOC_CHANGELOG } from './contentChangelog'
 import {
   DOC_API_AUTOMATION,
+  DOC_API_GROUPS,
   DOC_API_PROFILES_LAUNCH,
   DOC_API_RUNTIME,
 } from './contentApi'
@@ -139,6 +140,12 @@ export const DOC_GROUPS: LaunchDocGroup[] = [
         label: '脚本自动化',
         summary: '自动化接口总览、字段规则和调用顺序。',
         content: DOC_API_AUTOMATION,
+      },
+      {
+        id: 'api-groups',
+        label: '实例与代理分组',
+        summary: '维护实例树分组和代理/订阅树分组，并批量移动成员。',
+        content: DOC_API_GROUPS,
       },
       {
         id: 'api-support',
