@@ -6,6 +6,7 @@ import { BatchToolbar } from '../components/BrowserListWidgets'
 import { BrowserProfilesPanel } from '../components/BrowserProfilesPanel'
 import { BrowserBackupModal } from '../components/BrowserBackupModal'
 import { GroupManagerModal } from '../components/GroupManagerModal'
+import { GroupContentNavigator } from '../components/GroupContentNavigator'
 import { GroupTreeNav } from '../components/GroupTreeNav'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
 import { ProfileExtensionModal } from '../components/ProfileExtensionModal'
@@ -178,7 +179,7 @@ export function BrowserListPage() {
     isProfileStopping,
     isProfileBusy,
     getProfileStatus,
-  } = useBrowserListDerived(profiles, cores, groups, filters, startingIds, stoppingIds)
+  } = useBrowserListDerived(profiles, cores, filters, startingIds, stoppingIds)
   const {
     handleStart,
     handleStartDirect,
@@ -205,6 +206,11 @@ export function BrowserListPage() {
       }
       return prev
     })
+  }
+
+  const handleSelectGroup = (groupId: string | null) => {
+    setSelectedIds(new Set())
+    setFilters(previous => ({ ...previous, groupId: groupId || '' }))
   }
 
   // 批量操作
@@ -607,13 +613,19 @@ export function BrowserListPage() {
           selectedGroupId={filters.groupId || null}
           totalCount={profiles.length}
           ungroupedCount={profiles.filter(profile => !profile.groupId).length}
-          onSelectGroup={(groupId) => setFilters(previous => ({ ...previous, groupId: groupId || '' }))}
+          onSelectGroup={handleSelectGroup}
           onRefresh={handleGroupsChanged}
           onOpenManager={() => setGroupManagerOpen(true)}
           collapsed={groupSidebarCollapsed}
           onToggleCollapsed={() => setGroupSidebarCollapsed(previous => !previous)}
         />
         <main className="min-w-0 space-y-5">
+          <GroupContentNavigator
+            groups={groups}
+            selectedGroupId={filters.groupId}
+            directProfileCount={filteredProfiles.length}
+            onSelectGroup={handleSelectGroup}
+          />
           <BatchToolbar
             selectedCount={selectedIds.size}
             totalCount={filteredProfiles.length}
@@ -672,6 +684,9 @@ export function BrowserListPage() {
             onOpenCopy={openCopyModal}
             onOpenProxyPicker={setProxyPickerProfile}
             onDelete={openDeleteConfirm}
+            emptyMessage={filters.groupId && filters.groupId !== '__ungrouped__'
+              ? '当前分组没有符合筛选条件的直属实例'
+              : '暂无数据'}
           />
         </main>
       </div>
