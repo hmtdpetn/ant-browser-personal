@@ -44,6 +44,7 @@ interface BrowserProfilesPanelProps {
   onOpenCopy: (profile: BrowserProfile) => void
   onOpenProxyPicker: (profile: BrowserProfile) => void
   onDelete: (profileId: string) => void
+  emptyMessage?: string
 }
 
 const formatTime = (value?: string) => {
@@ -427,6 +428,7 @@ export function BrowserProfilesPanel({
   onOpenCopy,
   onOpenProxyPicker,
   onDelete,
+  emptyMessage = '暂无数据',
 }: BrowserProfilesPanelProps) {
   const allSelected = profiles.length > 0 && selectedIds.size === profiles.length
   const partiallySelected = selectedIds.size > 0 && selectedIds.size < profiles.length
@@ -592,7 +594,7 @@ export function BrowserProfilesPanel({
         {loading ? (
           <div className="py-16 flex items-center justify-center text-sm text-[var(--color-text-muted)]">加载中...</div>
         ) : profiles.length === 0 ? (
-          <div className="py-16 flex items-center justify-center text-sm text-[var(--color-text-muted)]">暂无数据</div>
+          <div className="py-16 flex items-center justify-center px-4 text-center text-sm text-[var(--color-text-muted)]">{emptyMessage}</div>
         ) : viewMode === 'table' ? (
           <Table
             columns={columns}
