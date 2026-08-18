@@ -1,0 +1,2 @@
+2982eb1949086dca902b310c6953f53d38c53a5de4b0edb329767c333940cb94  build/bin/ant-chrome.exe
+c2229b964fe272d6edf5cfc4546046088e3d4afbc2a5b4024f98bf0360f467a8  publish/output/AntBrowser-2.1.0-windows-amd64-portable.zip

@@ -12,6 +12,7 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 	log := logger.New("Browser")
 	profile := plan.profile
 	a.clearDeferredStartTargets(input.ProfileID)
+	a.markProfileLastLaunchArgsLocked(profile, plan.args)
 
 	cmd := exec.Command(plan.chromeBinaryPath, plan.args...)
 	cmd.Dir = filepath.Dir(plan.chromeBinaryPath)
@@ -39,6 +40,25 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 		profile.LastError = startErr.Error()
 		return profile, startErr
 	}
+	memoryLimitCleanup, err := applyBrowserProcessMemoryLimit(cmd, profile.MemoryLimitMB)
+	if err != nil {
+		_ = a.stopProcessCmd(cmd)
+		startErr := fmt.Errorf("实例启动失败：无法应用实例内存限制 %d MB。原因：%v。", profile.MemoryLimitMB, err)
+		log.Error("浏览器进程内存限制应用失败",
+			logger.F("profile_id", input.ProfileID),
+			logger.F("chrome", plan.chromeBinaryPath),
+			logger.F("memory_limit_mb", profile.MemoryLimitMB),
+			logger.F("error", err.Error()),
+			logger.F("reason", startErr.Error()),
+		)
+		profile.LastError = startErr.Error()
+		return profile, startErr
+	}
+	defer func() {
+		if memoryLimitCleanup != nil {
+			memoryLimitCleanup()
+		}
+	}()
 	monitor.Start()
 
 	var lastStartErr error
@@ -51,7 +71,8 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 				plan.releaseProxyBridge = false
 			}
 			if len(plan.deferredStartTargets) > 0 {
-				if err := openBrowserStartTargets(stableDebugPort, plan.deferredStartTargets); err != nil {
+				deferredPlan := deferredStartTargetsPlan{targets: plan.deferredStartTargets, newTabs: plan.deferredStartNewTabs}
+				if err := openDeferredStartTargets(stableDebugPort, deferredPlan); err != nil {
 					warning := deferredStartTargetsWarning(plan.deferredStartTargets, err)
 					profile.RuntimeWarning = warning
 					profile.LastError = ""
@@ -70,6 +91,7 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 				logger.F("debug_port", stableDebugPort),
 				logger.F("pid", profile.Pid),
 				logger.F("proxy", plan.effectiveProxy),
+				logger.F("memory_limit_mb", profile.MemoryLimitMB),
 				logger.F("attempt", attempt),
 				logger.F("max_attempts", plan.maxStartAttempts),
 				logger.F("args", strings.Join(plan.args, " ")),
@@ -77,7 +99,16 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 			a.emitBrowserInstanceStarted(profile, false)
 			a.applyBrowserProfileWindowBadgeAsync(input.ProfileID, plan.userDataDir, plan.badgeIconPath)
 
-			go a.waitBrowserProcess(input.ProfileID, monitor)
+			cleanup := memoryLimitCleanup
+			memoryLimitCleanup = nil
+			go func() {
+				defer func() {
+					if cleanup != nil {
+						cleanup()
+					}
+				}()
+				a.waitBrowserProcess(input.ProfileID, monitor)
+			}()
 			return profile, nil
 		}
 
@@ -114,7 +145,7 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 		pendingStartNotice = browserDebugPendingStartNotice(plan.totalReadyTimeout)
 		a.markProfileRunningLocked(input.ProfileID, profile, cmd, cmd.Process.Pid, plan.assignedDebugPort, false, runtimeWarning)
 		if len(plan.deferredStartTargets) > 0 {
-			a.storeDeferredStartTargets(input.ProfileID, plan.deferredStartTargets)
+			a.storeDeferredStartTargets(input.ProfileID, plan.deferredStartTargets, plan.deferredStartNewTabs)
 		}
 		if plan.acquiredProxyBridge.valid() {
 			a.bindProfileProxyBridge(input.ProfileID, plan.acquiredProxyBridge)
@@ -130,7 +161,16 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 		)
 		a.emitBrowserInstanceStarted(profile, false)
 		a.applyBrowserProfileWindowBadgeAsync(input.ProfileID, plan.userDataDir, plan.badgeIconPath)
-		go a.waitBrowserProcess(input.ProfileID, monitor)
+		cleanup := memoryLimitCleanup
+		memoryLimitCleanup = nil
+		go func() {
+			defer func() {
+				if cleanup != nil {
+					cleanup()
+				}
+			}()
+			a.waitBrowserProcess(input.ProfileID, monitor)
+		}()
 		go a.waitBrowserDebugReadyAsync(input.ProfileID, plan.assignedDebugPort, browserAsyncDebugAttachTimeout)
 	}
 

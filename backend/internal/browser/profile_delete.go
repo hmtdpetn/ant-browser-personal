@@ -40,6 +40,19 @@ func (m *Manager) Delete(profileId string) error {
 	profile.DeletedAt = deletedAt
 	profile.UpdatedAt = deletedAt
 	delete(m.Profiles, profileId)
+	resolvedDir := m.ResolveUserDataDir(profile)
+	dataDirExists := pathExists(resolvedDir)
+	m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+		Action:               "soft_delete",
+		ProfileID:            profile.ProfileId,
+		ProfileName:          profile.ProfileName,
+		UserDataDir:          profile.UserDataDir,
+		ResolvedDir:          resolvedDir,
+		DeletedAt:            deletedAt,
+		DataDirExistedBefore: dataDirExists,
+		DataDirExistsAfter:   dataDirExists,
+		Success:              true,
+	})
 	log.Info("浏览器配置移入回收站", logger.F("profile_id", profileId))
 
 	return nil
@@ -92,6 +105,19 @@ func (m *Manager) Restore(profileId string) (*Profile, error) {
 	if err := m.ProfileDAO.Restore(profileId); err != nil {
 		return nil, err
 	}
+	resolvedDir := m.ResolveUserDataDir(profile)
+	dataDirExists := pathExists(resolvedDir)
+	m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+		Action:               "restore",
+		ProfileID:            profile.ProfileId,
+		ProfileName:          profile.ProfileName,
+		UserDataDir:          profile.UserDataDir,
+		ResolvedDir:          resolvedDir,
+		DeletedAt:            profile.DeletedAt,
+		DataDirExistedBefore: dataDirExists,
+		DataDirExistsAfter:   dataDirExists,
+		Success:              true,
+	})
 	profile.DeletedAt = ""
 	profile.UpdatedAt = time.Now().Format(time.RFC3339)
 	profile.CoreId = normalizeProfileCoreID(profile.CoreId)
@@ -116,12 +142,49 @@ func (m *Manager) PermanentlyDelete(profileId string) error {
 	if strings.TrimSpace(profile.DeletedAt) == "" {
 		return fmt.Errorf("只能彻底删除回收站内的实例")
 	}
+	resolvedDir := m.ResolveUserDataDir(profile)
+	dataDirExistedBefore := pathExists(resolvedDir)
 	if err := m.deleteProfileRelatedDataLocked(log, profile); err != nil {
+		m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+			Action:               "permanent_delete",
+			ProfileID:            profile.ProfileId,
+			ProfileName:          profile.ProfileName,
+			UserDataDir:          profile.UserDataDir,
+			ResolvedDir:          resolvedDir,
+			DeletedAt:            profile.DeletedAt,
+			DataDirExistedBefore: dataDirExistedBefore,
+			DataDirExistsAfter:   pathExists(resolvedDir),
+			Success:              false,
+			Error:                err.Error(),
+		})
 		return err
 	}
 	if err := m.ProfileDAO.Delete(profileId); err != nil {
+		m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+			Action:               "permanent_delete",
+			ProfileID:            profile.ProfileId,
+			ProfileName:          profile.ProfileName,
+			UserDataDir:          profile.UserDataDir,
+			ResolvedDir:          resolvedDir,
+			DeletedAt:            profile.DeletedAt,
+			DataDirExistedBefore: dataDirExistedBefore,
+			DataDirExistsAfter:   pathExists(resolvedDir),
+			Success:              false,
+			Error:                err.Error(),
+		})
 		return err
 	}
+	m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+		Action:               "permanent_delete",
+		ProfileID:            profile.ProfileId,
+		ProfileName:          profile.ProfileName,
+		UserDataDir:          profile.UserDataDir,
+		ResolvedDir:          resolvedDir,
+		DeletedAt:            profile.DeletedAt,
+		DataDirExistedBefore: dataDirExistedBefore,
+		DataDirExistsAfter:   pathExists(resolvedDir),
+		Success:              true,
+	})
 	log.Info("回收站实例已彻底删除", logger.F("profile_id", profileId))
 	return nil
 }
@@ -147,14 +210,51 @@ func (m *Manager) cleanupExpiredTrashLocked(log *logger.Logger) error {
 	}
 	cleaned := 0
 	for _, profile := range expired {
+		resolvedDir := m.ResolveUserDataDir(profile)
+		dataDirExistedBefore := pathExists(resolvedDir)
 		if err := m.deleteProfileRelatedDataLocked(log, profile); err != nil {
 			log.Error("清理过期回收站实例关联数据失败", logger.F("profile_id", profile.ProfileId), logger.F("error", err))
+			m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+				Action:               "expired_cleanup",
+				ProfileID:            profile.ProfileId,
+				ProfileName:          profile.ProfileName,
+				UserDataDir:          profile.UserDataDir,
+				ResolvedDir:          resolvedDir,
+				DeletedAt:            profile.DeletedAt,
+				DataDirExistedBefore: dataDirExistedBefore,
+				DataDirExistsAfter:   pathExists(resolvedDir),
+				Success:              false,
+				Error:                err.Error(),
+			})
 			continue
 		}
 		if err := m.ProfileDAO.Delete(profile.ProfileId); err != nil {
 			log.Error("删除过期回收站实例记录失败", logger.F("profile_id", profile.ProfileId), logger.F("error", err))
+			m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+				Action:               "expired_cleanup",
+				ProfileID:            profile.ProfileId,
+				ProfileName:          profile.ProfileName,
+				UserDataDir:          profile.UserDataDir,
+				ResolvedDir:          resolvedDir,
+				DeletedAt:            profile.DeletedAt,
+				DataDirExistedBefore: dataDirExistedBefore,
+				DataDirExistsAfter:   pathExists(resolvedDir),
+				Success:              false,
+				Error:                err.Error(),
+			})
 			continue
 		}
+		m.writeProfileDeleteAudit(log, profileDeleteAuditEntry{
+			Action:               "expired_cleanup",
+			ProfileID:            profile.ProfileId,
+			ProfileName:          profile.ProfileName,
+			UserDataDir:          profile.UserDataDir,
+			ResolvedDir:          resolvedDir,
+			DeletedAt:            profile.DeletedAt,
+			DataDirExistedBefore: dataDirExistedBefore,
+			DataDirExistsAfter:   pathExists(resolvedDir),
+			Success:              true,
+		})
 		cleaned++
 	}
 	if cleaned > 0 {

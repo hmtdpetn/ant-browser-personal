@@ -1,10 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { lazyNamed } from "./lazyNamed";
 
-const DashboardPage = lazyNamed(
-  () => import("../modules/dashboard/DashboardPage"),
-  "DashboardPage",
-);
 const SettingsPage = lazyNamed(
   () => import("../modules/settings/SettingsPage"),
   "SettingsPage",
@@ -73,7 +69,7 @@ const AutomationScriptDetailPage = lazyNamed(
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<DashboardPage />} />
+      <Route path="/" element={<Navigate to="/browser/list" replace />} />
       <Route path="/charts" element={<ChartsPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/profile" element={<ProfilePage />} />

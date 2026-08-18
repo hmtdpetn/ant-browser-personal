@@ -32,24 +32,30 @@ func (m *Manager) Create(input ProfileInput) (*Profile, error) {
 			coreId = defaultCore.CoreId
 		}
 	}
+	fingerprintArgs := append([]string{}, input.FingerprintArgs...)
+	if len(fingerprintArgs) == 0 && m.Config != nil {
+		fingerprintArgs = append([]string{}, m.Config.Browser.DefaultFingerprintArgs...)
+	}
 	profile := &Profile{
-		ProfileId:       profileId,
-		ProfileName:     input.ProfileName,
-		UserDataDir:     userDataDir,
-		CoreId:          coreId,
-		FingerprintArgs: input.FingerprintArgs,
-		ProxyId:         resolvedProxy.ProxyId,
-		ProxyConfig:     resolvedProxy.ProxyConfig,
-		LaunchArgs:      input.LaunchArgs,
-		Tags:            input.Tags,
-		Keywords:        append([]string{}, input.Keywords...),
-		GroupId:         strings.TrimSpace(input.GroupId),
-		Running:         false,
-		DebugPort:       0,
-		Pid:             0,
-		LastError:       "",
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ProfileId:          profileId,
+		ProfileName:        input.ProfileName,
+		UserDataDir:        userDataDir,
+		CoreId:             coreId,
+		RestoreLastSession: NormalizeRestoreLastSessionMode(input.RestoreLastSession),
+		FingerprintArgs:    fingerprintArgs,
+		ProxyId:            resolvedProxy.ProxyId,
+		ProxyConfig:        resolvedProxy.ProxyConfig,
+		MemoryLimitMB:      normalizeMemoryLimitMB(input.MemoryLimitMB),
+		LaunchArgs:         input.LaunchArgs,
+		Tags:               input.Tags,
+		Keywords:           append([]string{}, input.Keywords...),
+		GroupId:            strings.TrimSpace(input.GroupId),
+		Running:            false,
+		DebugPort:          0,
+		Pid:                0,
+		LastError:          "",
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 	if resolvedProxy.HasSelectedProxy {
 		_ = BindProfileToProxy(profile, resolvedProxy.SelectedProxy, true)

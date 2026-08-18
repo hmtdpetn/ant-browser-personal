@@ -171,6 +171,7 @@ type BrowserProfileConfig struct {
 	ProfileName        string   `yaml:"profile_name" json:"profileName"`
 	UserDataDir        string   `yaml:"user_data_dir" json:"userDataDir"`
 	CoreId             string   `yaml:"core_id" json:"coreId"`
+	RestoreLastSession string   `yaml:"restore_last_session,omitempty" json:"restoreLastSession,omitempty"`
 	FingerprintArgs    []string `yaml:"fingerprint_args" json:"fingerprintArgs"`
 	ProxyId            string   `yaml:"proxy_id" json:"proxyId"`
 	ProxyConfig        string   `yaml:"proxy_config" json:"proxyConfig"`
@@ -178,6 +179,7 @@ type BrowserProfileConfig struct {
 	ProxyBindSourceURL string   `yaml:"proxy_bind_source_url,omitempty" json:"proxyBindSourceUrl,omitempty"`
 	ProxyBindName      string   `yaml:"proxy_bind_name,omitempty" json:"proxyBindName,omitempty"`
 	ProxyBindUpdatedAt string   `yaml:"proxy_bind_updated_at,omitempty" json:"proxyBindUpdatedAt,omitempty"`
+	MemoryLimitMB      int      `yaml:"memory_limit_mb,omitempty" json:"memoryLimitMb,omitempty"`
 	LaunchArgs         []string `yaml:"launch_args" json:"launchArgs"`
 	Tags               []string `yaml:"tags" json:"tags"`
 	Keywords           []string `yaml:"keywords,omitempty" json:"keywords,omitempty"`

@@ -4,11 +4,13 @@ import { Badge, Button, Card, ConfirmModal, Table, toast } from '../../../shared
 import type { TableColumn } from '../../../shared/components/Table'
 import type { BrowserCore, BrowserCoreInput, BrowserCoreValidateResult, BrowserSettings, BrowserCoreExtended, BrowserProxy } from '../types'
 import { fetchBrowserCores, saveBrowserCore, deleteBrowserCore, setDefaultBrowserCore, validateBrowserCorePath, openCorePath, fetchBrowserSettings, saveBrowserSettings, fetchCoreExtendedInfo, scanBrowserCores, importLocalBrowserCore, BrowserCoreDownload, fetchBrowserProxies, redownloadBrowserCore } from '../api'
-import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
+import { Environment, EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
 import { CoreDownloadModal } from './coreManagement/CoreDownloadModal'
 import { CoreEditModal } from './coreManagement/CoreEditModal'
 import { CoreSettingsCard } from './coreManagement/CoreSettingsCard'
 import { CoreSettingsModal } from './coreManagement/CoreSettingsModal'
+import { fetchCoreDownloadRecommendation } from './coreManagement/coreDownloadRecommendation'
+import type { CoreDownloadRecommendation } from './coreManagement/coreDownloadRecommendation'
 import type { CoreDisplayInfo, CoreDownloadForm, CoreDownloadProgress, CoreEditForm, CoreSettingsForm } from './coreManagement.types'
 
 export function CoreManagementPage() {
@@ -59,6 +61,9 @@ export function CoreManagementPage() {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false)
   const [downloadForm, setDownloadForm] = useState<CoreDownloadForm>({ name: '', url: '', proxyMode: 'system', proxyId: '', mode: 'download' })
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
+  const [downloadRecommendation, setDownloadRecommendation] = useState<CoreDownloadRecommendation | null>(null)
+  const [downloadRecommendationLoading, setDownloadRecommendationLoading] = useState(false)
+  const [downloadRecommendationError, setDownloadRecommendationError] = useState('')
   const [importProgress, setImportProgress] = useState<CoreDownloadProgress | null>(null)
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
 
@@ -282,16 +287,50 @@ export function CoreManagementPage() {
     }
   }
 
+  const loadCoreDownloadRecommendation = async () => {
+    setDownloadRecommendationLoading(true)
+    setDownloadRecommendationError('')
+    try {
+      let runtimeEnv: { platform?: string; arch?: string } | null = null
+      try {
+        runtimeEnv = await Environment()
+      } catch {
+        runtimeEnv = null
+      }
+      const recommendation = await fetchCoreDownloadRecommendation(runtimeEnv)
+      setDownloadRecommendation(recommendation)
+      if (!recommendation) {
+        setDownloadRecommendationError('当前环境没有可自动解压的 Release 压缩包')
+        return
+      }
+      setDownloadForm(prev => ({
+        ...prev,
+        url: prev.url.trim() ? prev.url : recommendation.downloadUrl,
+      }))
+    } catch (error: any) {
+      setDownloadRecommendation(null)
+      setDownloadRecommendationError(error?.message || '获取推荐地址失败')
+    } finally {
+      setDownloadRecommendationLoading(false)
+    }
+  }
+
   const handleOpenDownload = () => {
     setDownloadForm({ name: '', url: '', proxyMode: 'system', proxyId: '', mode: 'download' })
     setDownloadProgress(null)
+    setDownloadRecommendation(null)
+    setDownloadRecommendationError('')
     setDownloadModalOpen(true)
+    void loadCoreDownloadRecommendation()
   }
 
   const handleRedownload = (record: CoreDisplayInfo) => {
     setDownloadForm({ coreId: record.coreId, name: record.coreName, url: '', proxyMode: 'system', proxyId: '', mode: 'redownload' })
     setDownloadProgress(null)
+    setDownloadRecommendation(null)
+    setDownloadRecommendationError('')
     setDownloadModalOpen(true)
+    void loadCoreDownloadRecommendation()
   }
 
   // 保存内核
@@ -507,9 +546,13 @@ export function CoreManagementPage() {
         open={downloadModalOpen}
         form={downloadForm}
         progress={downloadProgress}
+        recommendation={downloadRecommendation}
+        recommendationLoading={downloadRecommendationLoading}
+        recommendationError={downloadRecommendationError}
         proxies={proxies}
         setForm={setDownloadForm}
         setProgress={setDownloadProgress}
+        onRefreshRecommendation={loadCoreDownloadRecommendation}
         onClose={() => setDownloadModalOpen(false)}
         onStart={handleStartDownloadCore}
       />

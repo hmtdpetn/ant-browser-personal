@@ -475,6 +475,231 @@ export namespace backend {
 	        this.source = source["source"];
 	    }
 	}
+	export class BrowserFingerprintCapabilityRow {
+	    capability: string;
+	    status: string;
+	    inputArg: string;
+	    runtimeArg: string;
+	    action: string;
+	    note: string;
+
+	    static createFrom(source: any = {}) {
+	        return new BrowserFingerprintCapabilityRow(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.capability = source["capability"];
+	        this.status = source["status"];
+	        this.inputArg = source["inputArg"];
+	        this.runtimeArg = source["runtimeArg"];
+	        this.action = source["action"];
+	        this.note = source["note"];
+	    }
+	}
+	export class BrowserFingerprintCapabilityReport {
+	    profileId: string;
+	    coreId: string;
+	    coreName: string;
+	    chromeVersion: string;
+	    chromeMajor: number;
+	    versionStatus: string;
+	    rawArgs: string[];
+	    launchArgs: string[];
+	    rows: BrowserFingerprintCapabilityRow[];
+	    warnings: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new BrowserFingerprintCapabilityReport(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profileId = source["profileId"];
+	        this.coreId = source["coreId"];
+	        this.coreName = source["coreName"];
+	        this.chromeVersion = source["chromeVersion"];
+	        this.chromeMajor = source["chromeMajor"];
+	        this.versionStatus = source["versionStatus"];
+	        this.rawArgs = source["rawArgs"];
+	        this.launchArgs = source["launchArgs"];
+	        this.rows = this.convertValues(source["rows"], BrowserFingerprintCapabilityRow);
+	        this.warnings = source["warnings"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+	export class BrowserFingerprintExpectedInfo {
+	    language: string;
+	    acceptLanguage: string;
+	    timezone: string;
+	    hardwareConcurrency: string;
+	    deviceMemory: string;
+	    colorDepth: string;
+	    touchPoints: string;
+	    windowSize: string;
+	    brand: string;
+	    brandVersion: string;
+	    platform: string;
+	    platformVersion: string;
+	    seed: string;
+	    disableSpoofing: string;
+	    webrtcPolicy: string;
+	    doNotTrack: string;
+	    mediaDevices: string;
+	    canvasNoise: string;
+	    audioNoise: string;
+	    clientRectsNoise: string;
+	    fontList: string;
+	    webglVendor: string;
+	    webglRenderer: string;
+
+	    static createFrom(source: any = {}) {
+	        return new BrowserFingerprintExpectedInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.language = source["language"];
+	        this.acceptLanguage = source["acceptLanguage"];
+	        this.timezone = source["timezone"];
+	        this.hardwareConcurrency = source["hardwareConcurrency"];
+	        this.deviceMemory = source["deviceMemory"];
+	        this.colorDepth = source["colorDepth"];
+	        this.touchPoints = source["touchPoints"];
+	        this.windowSize = source["windowSize"];
+	        this.brand = source["brand"];
+	        this.brandVersion = source["brandVersion"];
+	        this.platform = source["platform"];
+	        this.platformVersion = source["platformVersion"];
+	        this.seed = source["seed"];
+	        this.disableSpoofing = source["disableSpoofing"];
+	        this.webrtcPolicy = source["webrtcPolicy"];
+	        this.doNotTrack = source["doNotTrack"];
+	        this.mediaDevices = source["mediaDevices"];
+	        this.canvasNoise = source["canvasNoise"];
+	        this.audioNoise = source["audioNoise"];
+	        this.clientRectsNoise = source["clientRectsNoise"];
+	        this.fontList = source["fontList"];
+	        this.webglVendor = source["webglVendor"];
+	        this.webglRenderer = source["webglRenderer"];
+	    }
+	}
+	export class BrowserFingerprintRuntimeInfo {
+	    language: string;
+	    languages: string[];
+	    timezone: string;
+	    hardwareConcurrency: number;
+	    deviceMemory: number;
+	    maxTouchPoints: number;
+	    doNotTrack: string;
+	    mediaDeviceCount: number;
+	    platform: string;
+	    userAgent: string;
+	    userAgentData: string;
+	    webdriver: boolean;
+	    screenWidth: number;
+	    screenHeight: number;
+	    colorDepth: number;
+	    innerWidth: number;
+	    innerHeight: number;
+	    outerWidth: number;
+	    outerHeight: number;
+	    devicePixelRatio: number;
+	    webglVendor: string;
+	    webglRenderer: string;
+	    canvasHash: string;
+	    audioHash: string;
+	    clientRectsHash: string;
+	    plugins: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new BrowserFingerprintRuntimeInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.language = source["language"];
+	        this.languages = source["languages"];
+	        this.timezone = source["timezone"];
+	        this.hardwareConcurrency = source["hardwareConcurrency"];
+	        this.deviceMemory = source["deviceMemory"];
+	        this.maxTouchPoints = source["maxTouchPoints"];
+	        this.doNotTrack = source["doNotTrack"];
+	        this.mediaDeviceCount = source["mediaDeviceCount"];
+	        this.platform = source["platform"];
+	        this.userAgent = source["userAgent"];
+	        this.userAgentData = source["userAgentData"];
+	        this.webdriver = source["webdriver"];
+	        this.screenWidth = source["screenWidth"];
+	        this.screenHeight = source["screenHeight"];
+	        this.colorDepth = source["colorDepth"];
+	        this.innerWidth = source["innerWidth"];
+	        this.innerHeight = source["innerHeight"];
+	        this.outerWidth = source["outerWidth"];
+	        this.outerHeight = source["outerHeight"];
+	        this.devicePixelRatio = source["devicePixelRatio"];
+	        this.webglVendor = source["webglVendor"];
+	        this.webglRenderer = source["webglRenderer"];
+	        this.canvasHash = source["canvasHash"];
+	        this.audioHash = source["audioHash"];
+	        this.clientRectsHash = source["clientRectsHash"];
+	        this.plugins = source["plugins"];
+	    }
+	}
+	export class BrowserFingerprintCheckResult {
+	    profileId: string;
+	    runtime: BrowserFingerprintRuntimeInfo;
+	    expected: BrowserFingerprintExpectedInfo;
+
+	    static createFrom(source: any = {}) {
+	        return new BrowserFingerprintCheckResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profileId = source["profileId"];
+	        this.runtime = this.convertValues(source["runtime"], BrowserFingerprintRuntimeInfo);
+	        this.expected = this.convertValues(source["expected"], BrowserFingerprintExpectedInfo);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+
 	export class CookieInfo {
 	    name: string;
 	    value: string;
@@ -1176,6 +1401,7 @@ export namespace browser {
 	    profileName: string;
 	    userDataDir: string;
 	    coreId: string;
+	    restoreLastSession: string;
 	    fingerprintArgs: string[];
 	    proxyId: string;
 	    proxyConfig: string;
@@ -1183,7 +1409,9 @@ export namespace browser {
 	    proxyBindSourceUrl: string;
 	    proxyBindName: string;
 	    proxyBindUpdatedAt: string;
+	    memoryLimitMb: number;
 	    launchArgs: string[];
+	    lastLaunchArgs: string[];
 	    tags: string[];
 	    keywords: string[];
 	    groupId: string;
@@ -1210,6 +1438,7 @@ export namespace browser {
 	        this.profileName = source["profileName"];
 	        this.userDataDir = source["userDataDir"];
 	        this.coreId = source["coreId"];
+	        this.restoreLastSession = source["restoreLastSession"];
 	        this.fingerprintArgs = source["fingerprintArgs"];
 	        this.proxyId = source["proxyId"];
 	        this.proxyConfig = source["proxyConfig"];
@@ -1217,7 +1446,9 @@ export namespace browser {
 	        this.proxyBindSourceUrl = source["proxyBindSourceUrl"];
 	        this.proxyBindName = source["proxyBindName"];
 	        this.proxyBindUpdatedAt = source["proxyBindUpdatedAt"];
+	        this.memoryLimitMb = source["memoryLimitMb"];
 	        this.launchArgs = source["launchArgs"];
+	        this.lastLaunchArgs = source["lastLaunchArgs"];
 	        this.tags = source["tags"];
 	        this.keywords = source["keywords"];
 	        this.groupId = source["groupId"];
@@ -1271,9 +1502,11 @@ export namespace browser {
 	    profileName: string;
 	    userDataDir: string;
 	    coreId: string;
+	    restoreLastSession: string;
 	    fingerprintArgs: string[];
 	    proxyId: string;
 	    proxyConfig: string;
+	    memoryLimitMb: number;
 	    launchArgs: string[];
 	    tags: string[];
 	    keywords: string[];
@@ -1288,9 +1521,11 @@ export namespace browser {
 	        this.profileName = source["profileName"];
 	        this.userDataDir = source["userDataDir"];
 	        this.coreId = source["coreId"];
+	        this.restoreLastSession = source["restoreLastSession"];
 	        this.fingerprintArgs = source["fingerprintArgs"];
 	        this.proxyId = source["proxyId"];
 	        this.proxyConfig = source["proxyConfig"];
+	        this.memoryLimitMb = source["memoryLimitMb"];
 	        this.launchArgs = source["launchArgs"];
 	        this.tags = source["tags"];
 	        this.keywords = source["keywords"];

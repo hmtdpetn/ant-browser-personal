@@ -109,7 +109,26 @@ func buildOutboundVless(node string) (map[string]interface{}, error) {
 		},
 	}
 	stream := map[string]interface{}{}
-	if sec == "tls" || sec == "reality" {
+	if sec == "reality" {
+		stream["security"] = "reality"
+		realitySettings := map[string]interface{}{"spiderX": ""}
+		if sni != "" {
+			realitySettings["serverName"] = sni
+		}
+		if fingerprint != "" {
+			realitySettings["fingerprint"] = fingerprint
+		}
+		if publicKey := firstNonEmptyQueryValue(q, "pbk", "public-key", "publicKey"); publicKey != "" {
+			realitySettings["publicKey"] = publicKey
+		}
+		if shortID := firstNonEmptyQueryValue(q, "sid", "short-id", "shortId"); shortID != "" {
+			realitySettings["shortId"] = shortID
+		}
+		if spiderX := firstNonEmptyQueryValue(q, "spx", "spider-x", "spiderX"); spiderX != "" {
+			realitySettings["spiderX"] = spiderX
+		}
+		stream["realitySettings"] = realitySettings
+	} else if sec == "tls" {
 		stream["security"] = "tls"
 		tlsSettings := map[string]interface{}{}
 		if sni != "" {

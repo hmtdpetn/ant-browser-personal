@@ -112,6 +112,7 @@ proxy-subscription.yaml
 proxy-subscriptions.yaml
 subscription.yaml
 subscriptions.yaml
+vpn-sockets-connectivity-report.md
 account.json
 accounts.json
 accounts.yaml

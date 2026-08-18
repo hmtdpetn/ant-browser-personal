@@ -13,11 +13,14 @@ func proxyConfigToMapping(src string) (map[string]any, error) {
 	src = strings.TrimSpace(src)
 	l := strings.ToLower(src)
 
-	if strings.HasPrefix(l, "http://") || strings.HasPrefix(l, "https://") {
-		return parseStandardProxy(src, "http")
+	if strings.HasPrefix(l, "http://") {
+		return parseStandardProxy(src, "http", false)
+	}
+	if strings.HasPrefix(l, "https://") {
+		return parseStandardProxy(src, "http", true)
 	}
 	if strings.HasPrefix(l, "socks5://") {
-		return parseStandardProxy(src, "socks5")
+		return parseStandardProxy(src, "socks5", false)
 	}
 	if strings.HasPrefix(l, "ss://") {
 		return parseSSURIToMapping(src)
@@ -30,7 +33,7 @@ func proxyConfigToMapping(src string) (map[string]any, error) {
 	return parseClashYAMLToMapping(src)
 }
 
-func parseStandardProxy(src string, proxyType string) (map[string]any, error) {
+func parseStandardProxy(src string, proxyType string, tls bool) (map[string]any, error) {
 	parsed, err := url.Parse(src)
 	if err != nil {
 		return nil, fmt.Errorf("代理地址解析失败: %w", err)
@@ -59,6 +62,9 @@ func parseStandardProxy(src string, proxyType string) (map[string]any, error) {
 	if username != "" {
 		mapping["username"] = username
 		mapping["password"] = password
+	}
+	if tls {
+		mapping["tls"] = true
 	}
 	return mapping, nil
 }

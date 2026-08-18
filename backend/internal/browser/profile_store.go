@@ -37,6 +37,7 @@ func (m *Manager) loadProfiles() {
 		} else {
 			for _, p := range profiles {
 				p.CoreId = normalizeProfileCoreID(p.CoreId)
+				p.FingerprintArgs = upgradeLegacyMinimalFingerprintArgs(p.FingerprintArgs)
 				m.Profiles[p.ProfileId] = p
 			}
 			if len(profiles) > 0 {
@@ -71,13 +72,15 @@ func (m *Manager) loadProfiles() {
 			ProfileName:        item.ProfileName,
 			UserDataDir:        item.UserDataDir,
 			CoreId:             normalizeProfileCoreID(item.CoreId),
-			FingerprintArgs:    append([]string{}, item.FingerprintArgs...),
+			RestoreLastSession: NormalizeRestoreLastSessionMode(item.RestoreLastSession),
+			FingerprintArgs:    upgradeLegacyMinimalFingerprintArgs(item.FingerprintArgs),
 			ProxyId:            item.ProxyId,
 			ProxyConfig:        item.ProxyConfig,
 			ProxyBindSourceID:  item.ProxyBindSourceID,
 			ProxyBindSourceURL: item.ProxyBindSourceURL,
 			ProxyBindName:      item.ProxyBindName,
 			ProxyBindUpdatedAt: item.ProxyBindUpdatedAt,
+			MemoryLimitMB:      normalizeMemoryLimitMB(item.MemoryLimitMB),
 			LaunchArgs:         append([]string{}, item.LaunchArgs...),
 			Tags:               append([]string{}, item.Tags...),
 			Keywords:           append([]string{}, item.Keywords...),
@@ -114,6 +117,7 @@ func (m *Manager) SaveProfiles() error {
 			ProfileName:        profile.ProfileName,
 			UserDataDir:        profile.UserDataDir,
 			CoreId:             normalizeProfileCoreID(profile.CoreId),
+			RestoreLastSession: NormalizeRestoreLastSessionMode(profile.RestoreLastSession),
 			FingerprintArgs:    append([]string{}, profile.FingerprintArgs...),
 			ProxyId:            profile.ProxyId,
 			ProxyConfig:        profile.ProxyConfig,
@@ -121,6 +125,7 @@ func (m *Manager) SaveProfiles() error {
 			ProxyBindSourceURL: profile.ProxyBindSourceURL,
 			ProxyBindName:      profile.ProxyBindName,
 			ProxyBindUpdatedAt: profile.ProxyBindUpdatedAt,
+			MemoryLimitMB:      normalizeMemoryLimitMB(profile.MemoryLimitMB),
 			LaunchArgs:         append([]string{}, profile.LaunchArgs...),
 			Tags:               append([]string{}, profile.Tags...),
 			Keywords:           append([]string{}, profile.Keywords...),

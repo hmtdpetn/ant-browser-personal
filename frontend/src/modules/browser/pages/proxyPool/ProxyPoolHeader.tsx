@@ -8,6 +8,7 @@ interface ProxyPoolHeaderProps {
   onOpenImport: () => void
   onOpenCoreDownload: () => void
   onOpenSettings: () => void
+  onOpenUsageGuide: () => void
   onRefreshAllSources: () => void
   onTestAll: () => void
   refreshingAllSources: boolean
@@ -23,6 +24,7 @@ export function ProxyPoolHeader({
   onOpenImport,
   onOpenCoreDownload,
   onOpenSettings,
+  onOpenUsageGuide,
   onRefreshAllSources,
   onTestAll,
   refreshingAllSources,
@@ -75,6 +77,9 @@ export function ProxyPoolHeader({
             disabled={totalCount === 0}
           >
             测试全部
+          </Button>
+          <Button size="sm" variant="secondary" onClick={onOpenUsageGuide}>
+            使用说明
           </Button>
         </div>
         <Button size="sm" onClick={onOpenImport}>导入代理</Button>

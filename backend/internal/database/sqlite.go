@@ -212,7 +212,6 @@ var migrations = []migration{
 			`ALTER TABLE browser_proxies ADD COLUMN source_user_agent_fallback INTEGER NOT NULL DEFAULT 1`,
 		},
 	},
-	// ── 新版本在此追加，格式：
 	{
 		version: 14,
 		desc:    "Add persistent hierarchical proxy groups",
@@ -241,6 +240,21 @@ var migrations = []migration{
 			 WHERE trim(COALESCE(group_name, '')) != '' AND group_id = ''`,
 		},
 	},
+	{
+		version: 15,
+		desc:    "实例表添加历史标签恢复覆盖字段",
+		stmts: []string{
+			`ALTER TABLE browser_profiles ADD COLUMN restore_last_session TEXT NOT NULL DEFAULT ''`,
+		},
+	},
+	{
+		version: 16,
+		desc:    "实例表添加内存限制字段",
+		stmts: []string{
+			`ALTER TABLE browser_profiles ADD COLUMN memory_limit_mb INTEGER NOT NULL DEFAULT 0`,
+		},
+	},
+	// ── 新版本在此追加，格式：
 	// {
 	//     version: 4,
 	//     desc:    "描述本次变更",

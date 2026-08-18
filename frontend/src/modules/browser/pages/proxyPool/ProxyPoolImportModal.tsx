@@ -58,6 +58,12 @@ interface ProxyPoolImportModalProps {
   onDirectImportFormChange: (patch: Partial<DirectImportForm>) => void
 }
 
+const importModeTabs: Array<{ value: ProxyImportMode; label: string; hint: string }> = [
+  { value: 'clash', label: 'Clash 订阅 / YAML', hint: '订阅或 Clash 节点列表' },
+  { value: 'direct', label: 'HTTP / SOCKS5', hint: '单层代理或批量文本' },
+  { value: 'chain', label: '链式代理', hint: '本机出口 + 落地代理' },
+]
+
 export function ProxyPoolImportModal({
   open,
   groups,
@@ -109,7 +115,7 @@ export function ProxyPoolImportModal({
       open={open}
       onClose={onClose}
       title="导入代理配置"
-      width="600px"
+      width="720px"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={fetchingImportUrl}>
@@ -122,26 +128,26 @@ export function ProxyPoolImportModal({
       }
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            variant={importMode === 'clash' ? undefined : 'secondary'}
-            onClick={() => onImportModeChange('clash')}
-          >
-            Clash 订阅 / YAML
-          </Button>
-          <Button
-            variant={importMode === 'direct' ? undefined : 'secondary'}
-            onClick={() => onImportModeChange('direct')}
-          >
-            HTTP / SOCKS5
-          </Button>
-          <Button
-            variant={importMode === 'chain' ? undefined : 'secondary'}
-            onClick={() => onImportModeChange('chain')}
-          >
-            链式代理
-          </Button>
+        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[var(--color-bg-secondary)] p-1">
+          {importModeTabs.map(tab => {
+            const active = importMode === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => onImportModeChange(tab.value)}
+                className={active
+                  ? 'rounded-xl bg-[var(--color-text-primary)] px-4 py-3 text-left text-white shadow-sm'
+                  : 'rounded-xl px-4 py-3 text-left text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)]'
+                }
+              >
+                <span className="block text-sm font-semibold">{tab.label}</span>
+                <span className={active ? 'mt-1 block text-xs text-white/75' : 'mt-1 block text-xs text-[var(--color-text-muted)]'}>{tab.hint}</span>
+              </button>
+            )
+          })}
         </div>
+
         {importMode === 'clash' && (
           <>
             <FormItem label="订阅 URL（可选）">

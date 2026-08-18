@@ -4,7 +4,6 @@ import (
 	"ant-chrome/backend/internal/browser"
 	"ant-chrome/backend/internal/config"
 	"os/exec"
-	"time"
 )
 
 func (a *App) backupStopRuntimeForMaintenance() {
@@ -77,8 +76,8 @@ func (a *App) backupReloadAfterMutation() error {
 				r := a.testProxySpeedWithConnector(proxyID, a.getLatestProxies(), connectorType)
 				return r.Ok, r.LatencyMs, r.Error
 			},
-			5*time.Minute,
-			5,
+			browser.DefaultProxySpeedInterval,
+			browser.DefaultProxySpeedConcurrency,
 		)
 		a.speedScheduler.Start()
 	}

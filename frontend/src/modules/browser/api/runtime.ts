@@ -39,6 +39,7 @@ let mockProfiles: BrowserProfile[] = [
     fingerprintArgs: ['--fingerprint-brand=Chrome', '--fingerprint-platform=windows'],
     proxyId: '',
     proxyConfig: '',
+    memoryLimitMb: 0,
     launchArgs: ['--disable-features=Translate'],
     tags: ['默认'],
     keywords: [],

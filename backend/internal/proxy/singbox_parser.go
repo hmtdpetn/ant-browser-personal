@@ -12,7 +12,7 @@ import (
 // IsSingBoxProtocol 判断是否为 sing-box 支持的协议（hysteria2/tuic）
 func IsSingBoxProtocol(proxyConfig string) bool {
 	l := strings.ToLower(strings.TrimSpace(proxyConfig))
-	if strings.HasPrefix(l, "hysteria2://") || strings.HasPrefix(l, "hysteria://") {
+	if strings.HasPrefix(l, "hysteria2://") || strings.HasPrefix(l, "hysteria://") || strings.HasPrefix(l, "anytls://") || strings.HasPrefix(l, "tuic://") {
 		return true
 	}
 	// Clash YAML 格式
@@ -30,9 +30,19 @@ func BuildSingBoxOutbound(node string) (map[string]interface{}, error) {
 	src := strings.TrimSpace(node)
 	l := strings.ToLower(src)
 
-	if strings.HasPrefix(l, "hysteria2://") || strings.HasPrefix(l, "hysteria://") {
+	if strings.HasPrefix(l, "hysteria2://") {
 		return parseHysteria2URI(src)
 	}
+	if strings.HasPrefix(l, "hysteria://") {
+		return parseHysteriaURI(src)
+	}
+	if strings.HasPrefix(l, "anytls://") {
+		return parseAnyTLSURI(src)
+	}
+	if strings.HasPrefix(l, "tuic://") {
+		return parseTUICURI(src)
+	}
+
 	// Clash YAML 格式
 	if strings.Contains(l, "type:") || strings.Contains(l, "proxies:") {
 		return parseClashSingBoxNode(src)
@@ -44,11 +54,6 @@ func BuildSingBoxOutbound(node string) (map[string]interface{}, error) {
 // parseHysteria2URI 解析 hysteria2:// URI
 // 格式: hysteria2://password@host:port?sni=xxx&insecure=1
 func parseHysteria2URI(node string) (map[string]interface{}, error) {
-	// 统一为 hysteria2://
-	if strings.HasPrefix(strings.ToLower(node), "hysteria://") {
-		node = "hysteria2://" + node[len("hysteria://"):]
-	}
-
 	u, err := url.Parse(node)
 	if err != nil {
 		return nil, fmt.Errorf("hysteria2 URI 解析失败: %v", err)
@@ -102,6 +107,67 @@ func parseHysteria2URI(node string) (map[string]interface{}, error) {
 			"type":     "salamander",
 			"password": obfsPassword,
 		}
+	}
+
+	return out, nil
+}
+
+func parseHysteriaURI(node string) (map[string]interface{}, error) {
+	u, err := url.Parse(node)
+	if err != nil {
+		return nil, fmt.Errorf("hysteria URI 解析失败: %v", err)
+	}
+
+	host := u.Hostname()
+	portStr := u.Port()
+	port, _ := strconv.Atoi(portStr)
+	q := u.Query()
+	auth := firstNonEmptyQueryValue(q, "auth", "auth_str", "auth-str", "password")
+	if auth == "" && u.User != nil {
+		auth = u.User.Username()
+		if password, ok := u.User.Password(); ok && password != "" {
+			auth = password
+		}
+	}
+	sni := firstNonEmptyQueryValue(q, "sni", "peer", "servername")
+	insecure := queryBool(q, "insecure", "allowInsecure", "skip-cert-verify")
+	serverPorts := parseSingBoxServerPorts(firstNonEmptyQueryValue(q, "mport", "ports", "server_ports", "server-ports"))
+
+	if host == "" || port == 0 {
+		return nil, fmt.Errorf("hysteria 节点信息不完整: host=%s port=%d", host, port)
+	}
+
+	tls := map[string]interface{}{
+		"enabled":  true,
+		"insecure": insecure,
+	}
+	if sni != "" {
+		tls["server_name"] = sni
+	}
+	applySingBoxTLSClientOptionsFromQuery(q, tls)
+
+	out := map[string]interface{}{
+		"type":        "hysteria",
+		"tag":         "proxy-out",
+		"server":      host,
+		"server_port": port,
+		"tls":         tls,
+	}
+	if serverPorts != "" {
+		out["server_ports"] = serverPorts
+		delete(out, "server_port")
+	}
+	if auth != "" {
+		out["auth_str"] = auth
+	}
+	if obfs := strings.TrimSpace(q.Get("obfs")); obfs != "" {
+		out["obfs"] = obfs
+	}
+	if up := firstNonEmptyQueryValue(q, "upmbps", "up_mbps", "up"); up != "" {
+		out["up_mbps"] = parseBandwidthMbps(up)
+	}
+	if down := firstNonEmptyQueryValue(q, "downmbps", "down_mbps", "down"); down != "" {
+		out["down_mbps"] = parseBandwidthMbps(down)
 	}
 
 	return out, nil
@@ -179,8 +245,10 @@ func parseClashSingBoxNode(src string) (map[string]interface{}, error) {
 
 	nodeType := strings.ToLower(getMapString(nodeMap, "type"))
 	switch nodeType {
-	case "hysteria2", "hysteria":
+	case "hysteria2":
 		return buildSingBoxHysteria2FromClash(nodeMap)
+	case "hysteria":
+		return buildSingBoxHysteriaFromClash(nodeMap)
 	case "tuic":
 		return buildSingBoxTUICFromClash(nodeMap)
 	case "anytls":
@@ -242,6 +310,55 @@ func buildSingBoxAnyTLSFromClash(node map[string]interface{}) (map[string]interf
 	}
 	if minIdleSession := getMapInt(node, "min-idle-session"); minIdleSession != 0 {
 		out["min_idle_session"] = minIdleSession
+	}
+
+	return out, nil
+}
+
+func buildSingBoxHysteriaFromClash(node map[string]interface{}) (map[string]interface{}, error) {
+	host := getMapString(node, "server")
+	port := getMapInt(node, "port")
+	auth := firstNonEmptyMapString(node, "auth-str", "auth_str", "auth", "password")
+	sni := getMapString(node, "sni")
+	if sni == "" {
+		sni = getMapString(node, "servername")
+	}
+	skipVerify := getMapBool(node, "skip-cert-verify")
+
+	if host == "" || port == 0 {
+		return nil, fmt.Errorf("hysteria 节点信息不完整")
+	}
+
+	tls := map[string]interface{}{
+		"enabled":  true,
+		"insecure": skipVerify,
+	}
+	if sni != "" {
+		tls["server_name"] = sni
+	}
+	applySingBoxTLSClientOptionsFromClash(node, tls)
+
+	out := map[string]interface{}{
+		"type":        "hysteria",
+		"tag":         "proxy-out",
+		"server":      host,
+		"server_port": port,
+		"tls":         tls,
+	}
+	if serverPorts := clashHysteria2ServerPorts(node); serverPorts != "" {
+		out["server_ports"] = serverPorts
+	}
+	if auth != "" {
+		out["auth_str"] = auth
+	}
+	if up := getMapString(node, "up"); up != "" {
+		out["up_mbps"] = parseBandwidthMbps(up)
+	}
+	if down := getMapString(node, "down"); down != "" {
+		out["down_mbps"] = parseBandwidthMbps(down)
+	}
+	if obfs := getMapString(node, "obfs"); obfs != "" {
+		out["obfs"] = obfs
 	}
 
 	return out, nil
@@ -322,6 +439,53 @@ func parseSingBoxServerPorts(raw string) string {
 		ranges = append(ranges, item)
 	}
 	return strings.Join(ranges, ",")
+}
+
+func parseTUICURI(node string) (map[string]interface{}, error) {
+	u, err := url.Parse(node)
+	if err != nil {
+		return nil, fmt.Errorf("tuic URI 解析失败: %v", err)
+	}
+	host := u.Hostname()
+	portStr := u.Port()
+	port, _ := strconv.Atoi(portStr)
+	uuid := u.User.Username()
+	password, _ := u.User.Password()
+	q := u.Query()
+	if password == "" {
+		password = q.Get("password")
+	}
+	sni := firstNonEmptyQueryValue(q, "sni", "peer", "servername")
+	insecure := queryBool(q, "insecure", "allowInsecure", "skip-cert-verify")
+
+	if host == "" || port == 0 || uuid == "" || password == "" {
+		return nil, fmt.Errorf("tuic URI 节点信息不完整: host=%s port=%d uuid_empty=%v password_empty=%v", host, port, uuid == "", password == "")
+	}
+
+	tls := map[string]interface{}{
+		"enabled":  true,
+		"insecure": insecure,
+	}
+	if sni != "" {
+		tls["server_name"] = sni
+	}
+	applySingBoxTLSClientOptionsFromQuery(q, tls)
+
+	congestionControl := firstNonEmptyQueryValue(q, "congestion_control", "congestion-control", "congestion_controller", "congestion-controller")
+	if congestionControl == "" {
+		congestionControl = "bbr"
+	}
+
+	return map[string]interface{}{
+		"type":               "tuic",
+		"tag":                "proxy-out",
+		"server":             host,
+		"server_port":        port,
+		"uuid":               uuid,
+		"password":           password,
+		"congestion_control": congestionControl,
+		"tls":                tls,
+	}, nil
 }
 
 func buildSingBoxTUICFromClash(node map[string]interface{}) (map[string]interface{}, error) {

@@ -20,7 +20,9 @@ export function parseProxyInfo(proxyConfig: string): { type: string; server: str
 
   const chain = parseChainSocks5Config(cfg)
   if (chain) {
-    return { type: 'chain-socks5', server: '127.0.0.1', port: chain.localPort || 0 }
+    const firstHop = `${chain.first.server}:${chain.first.port}`
+    const secondHop = `${chain.second.server}:${chain.second.port}`
+    return { type: '链式', server: `${firstHop} → ${secondHop}`, port: chain.second.port }
   }
 
   const urlMatch = cfg.match(/^([a-zA-Z0-9+\-]+):\/\//)

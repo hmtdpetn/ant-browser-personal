@@ -5,6 +5,7 @@ import { ProxyGroupSelect } from '../../components/ProxyGroupSelect'
 
 import {
   type ChainImportForm,
+  type DirectImportForm,
   type ProxyDisplayInfo,
   type ProxyImportMode,
 } from './helpers'
@@ -100,10 +101,13 @@ interface ProxyPoolEditModalProps {
   editForm: ProxyEditFormValue
   chainEditMode: boolean
   chainEditForm: ChainImportForm
+  directEditMode: boolean
+  directEditForm: DirectImportForm
   onClose: () => void
   onSave: () => void
   onChange: (patch: Partial<ProxyEditFormValue>) => void
   onChainEditFormChange: (patch: Partial<ChainImportForm>) => void
+  onDirectEditFormChange: (patch: Partial<DirectImportForm>) => void
   onChainEditHopChange: (hop: 'first' | 'second', field: keyof ChainImportForm['first'], value: string) => void
 }
 
@@ -114,10 +118,13 @@ export function ProxyPoolEditModal({
   editForm,
   chainEditMode,
   chainEditForm,
+  directEditMode,
+  directEditForm,
   onClose,
   onSave,
   onChange,
   onChainEditFormChange,
+  onDirectEditFormChange,
   onChainEditHopChange,
 }: ProxyPoolEditModalProps) {
   return (
@@ -140,10 +147,14 @@ export function ProxyPoolEditModal({
       <div className="space-y-4">
         <FormItem label="代理名称" required>
           <Input
-            value={chainEditMode ? chainEditForm.proxyName : editForm.proxyName}
+            value={chainEditMode ? chainEditForm.proxyName : directEditMode ? directEditForm.proxyName : editForm.proxyName}
             onChange={(event) => {
               if (chainEditMode) {
                 onChainEditFormChange({ proxyName: event.target.value })
+                return
+              }
+              if (directEditMode) {
+                onDirectEditFormChange({ proxyName: event.target.value })
                 return
               }
               onChange({ proxyName: event.target.value })
@@ -269,13 +280,58 @@ export function ProxyPoolEditModal({
               </div>
             </div>
           </div>
+        ) : directEditMode ? (
+          <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
+            <h4 className="text-sm font-medium text-[var(--color-text-primary)]">代理参数</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormItem label="协议">
+                <Select
+                  value={directEditForm.protocol}
+                  onChange={(event) => onDirectEditFormChange({ protocol: event.target.value as DirectImportForm['protocol'] })}
+                  options={[
+                    { value: 'http', label: 'HTTP' },
+                    { value: 'https', label: 'HTTPS' },
+                    { value: 'socks5', label: 'SOCKS5' },
+                  ]}
+                />
+              </FormItem>
+              <FormItem label="代理地址" required>
+                <Input
+                  value={directEditForm.server}
+                  onChange={(event) => onDirectEditFormChange({ server: event.target.value })}
+                />
+              </FormItem>
+              <FormItem label="代理端口" required>
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={directEditForm.port}
+                  onChange={(event) => onDirectEditFormChange({ port: event.target.value })}
+                />
+              </FormItem>
+              <FormItem label="账号（可选）">
+                <Input
+                  value={directEditForm.username}
+                  onChange={(event) => onDirectEditFormChange({ username: event.target.value })}
+                />
+              </FormItem>
+              <FormItem label="密码（可选）">
+                <Input
+                  type="password"
+                  value={directEditForm.password}
+                  onChange={(event) => onDirectEditFormChange({ password: event.target.value })}
+                />
+              </FormItem>
+            </div>
+          </div>
         ) : (
           <FormItem label="代理配置">
             <Textarea
               value={editForm.proxyConfig}
               onChange={(event) => onChange({ proxyConfig: event.target.value })}
               rows={10}
-              placeholder="支持 Clash YAML、http://、https://、socks5://、chain+socks5://"
+              placeholder="支持 Clash YAML、chain+socks5:// 或其它高级配置"
             />
           </FormItem>
         )}

@@ -126,6 +126,8 @@ func normalizeConfig(config *Config) {
 	}
 	if len(config.Browser.DefaultFingerprintArgs) == 0 {
 		config.Browser.DefaultFingerprintArgs = append([]string{}, defaultConfig.Browser.DefaultFingerprintArgs...)
+	} else if isLegacyMinimalDefaultFingerprintArgs(config.Browser.DefaultFingerprintArgs) {
+		config.Browser.DefaultFingerprintArgs = appendEffectiveRuntimeFingerprintArgs(config.Browser.DefaultFingerprintArgs)
 	}
 	if len(config.Browser.DefaultLaunchArgs) == 0 {
 		config.Browser.DefaultLaunchArgs = append([]string{}, defaultConfig.Browser.DefaultLaunchArgs...)
@@ -334,7 +336,55 @@ func defaultFingerprintArgsForOS(goos string) []string {
 	case "linux":
 		platform = "linux"
 	}
-	return []string{"--fingerprint-brand=Chrome", "--fingerprint-platform=" + platform}
+	return []string{
+		"--fingerprint-brand=Chrome",
+		"--fingerprint-platform=" + platform,
+		"--disable-non-proxied-udp",
+		"--fingerprinting-canvas-image-data-noise",
+		"--fingerprinting-client-rects-noise",
+	}
+}
+
+func isLegacyMinimalDefaultFingerprintArgs(args []string) bool {
+	if len(args) != 2 {
+		return false
+	}
+	hasBrand := false
+	hasPlatform := false
+	for _, arg := range args {
+		trimmed := strings.TrimSpace(arg)
+		if strings.HasPrefix(trimmed, "--fingerprint-brand=") {
+			hasBrand = true
+		}
+		if strings.HasPrefix(trimmed, "--fingerprint-platform=") {
+			hasPlatform = true
+		}
+	}
+	return hasBrand && hasPlatform
+}
+
+func appendEffectiveRuntimeFingerprintArgs(args []string) []string {
+	defaultRuntimeArgs := []string{
+		"--disable-non-proxied-udp",
+		"--fingerprinting-canvas-image-data-noise",
+		"--fingerprinting-client-rects-noise",
+	}
+	out := append([]string{}, args...)
+	for _, defaultArg := range defaultRuntimeArgs {
+		if !containsFingerprintArg(out, defaultArg) {
+			out = append(out, defaultArg)
+		}
+	}
+	return out
+}
+
+func containsFingerprintArg(args []string, expected string) bool {
+	for _, arg := range args {
+		if strings.TrimSpace(arg) == expected {
+			return true
+		}
+	}
+	return false
 }
 func DefaultAutomationRuntimeVersion(nodeVersion, playwrightVersion string) string {
 	return fmt.Sprintf("node-%s-playwright-core-%s", strings.TrimSpace(nodeVersion), strings.TrimSpace(playwrightVersion))

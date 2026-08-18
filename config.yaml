@@ -41,6 +41,9 @@ browser:
     default_fingerprint_args:
         - --fingerprint-brand=Chrome
         - --fingerprint-platform=windows
+        - --disable-non-proxied-udp
+        - --fingerprinting-canvas-image-data-noise
+        - --fingerprinting-client-rects-noise
     default_launch_args:
         - --disable-sync
         - --no-first-run

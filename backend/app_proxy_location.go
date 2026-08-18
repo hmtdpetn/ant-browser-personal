@@ -102,7 +102,8 @@ func (a *App) cachedProxyIPHealthResult(proxyId string) (ProxyIPHealthResult, bo
 }
 
 func buildProxyLocationResolveResult(proxyId string, health ProxyIPHealthResult, source string, resolvedAt string) ProxyLocationResolveResult {
-	option := resolveProxyLocationOption(health.Country, health.City)
+	countryCode := resolveProxyLocationCountryCode(health)
+	option := resolveProxyLocationOption(countryCode, health.Country, health.City)
 	ok := health.Ok && option.Timezone != "" && option.Lang != ""
 	result := ProxyLocationResolveResult{
 		ProxyId:    proxyId,
@@ -125,8 +126,11 @@ func buildProxyLocationResolveResult(proxyId string, health ProxyIPHealthResult,
 	return result
 }
 
-func resolveProxyLocationOption(country string, city string) ProxyLocationOption {
-	countryCode := normalizeCountryCode(country)
+func resolveProxyLocationOption(countryCode string, country string, city string) ProxyLocationOption {
+	countryCode = normalizeCountryCode(countryCode)
+	if countryCode == "" {
+		countryCode = normalizeCountryCode(country)
+	}
 	option := countryLocaleDefaults[countryCode]
 	if option.Timezone == "" {
 		return ProxyLocationOption{}
@@ -136,6 +140,17 @@ func resolveProxyLocationOption(country string, city string) ProxyLocationOption
 		option.Timezone = timezone
 	}
 	return option
+}
+
+func resolveProxyLocationCountryCode(health ProxyIPHealthResult) string {
+	if health.RawData != nil {
+		for _, key := range []string{"countryCode", "country_code", "countryISO", "country_iso_code", "cc"} {
+			if code := normalizeCountryCode(mapString(health.RawData, key)); code != "" {
+				return code
+			}
+		}
+	}
+	return normalizeCountryCode(health.Country)
 }
 
 func normalizeCountryCode(country string) string {

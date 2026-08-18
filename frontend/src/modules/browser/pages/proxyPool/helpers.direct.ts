@@ -48,7 +48,7 @@ function normalizeDirectProtocol(raw: unknown): DirectImportForm['protocol'] {
   throw new Error('protocol 仅支持 http / https / socks5')
 }
 
-function parseDirectProxyURL(raw: string): DirectImportForm {
+export function parseDirectProxyURL(raw: string): DirectImportForm {
   const normalized = normalizeDirectProxyConfig(raw)
   if (!normalized) {
     throw new Error('请输入标准代理地址')
@@ -82,6 +82,18 @@ function parseDirectProxyURL(raw: string): DirectImportForm {
     port: String(port),
     username: parsedURL.username ? decodeURIComponent(parsedURL.username) : '',
     password: parsedURL.password ? decodeURIComponent(parsedURL.password) : '',
+  }
+}
+
+export function toDirectImportForm(proxyName: string, proxyConfig: string): DirectImportForm | null {
+  try {
+    const form = parseDirectProxyURL(proxyConfig)
+    return {
+      ...form,
+      proxyName,
+    }
+  } catch {
+    return null
   }
 }
 

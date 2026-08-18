@@ -3,14 +3,20 @@ import { Button, FormItem, Input, Modal, toast } from '../../../../shared/compon
 import { BrowserOpenURL } from '../../../../wailsjs/runtime/runtime'
 import type { BrowserProxy } from '../../types'
 import type { CoreDownloadForm, CoreDownloadProgress } from '../coreManagement.types'
+import { FINGERPRINT_CHROMIUM_RELEASES_URL } from './coreDownloadRecommendation'
+import type { CoreDownloadRecommendation } from './coreDownloadRecommendation'
 
 interface CoreDownloadModalProps {
   open: boolean
   form: CoreDownloadForm
   progress: CoreDownloadProgress | null
+  recommendation: CoreDownloadRecommendation | null
+  recommendationLoading: boolean
+  recommendationError: string
   proxies: BrowserProxy[]
   setForm: Dispatch<SetStateAction<CoreDownloadForm>>
   setProgress: Dispatch<SetStateAction<CoreDownloadProgress | null>>
+  onRefreshRecommendation: () => void
   onClose: () => void
   onStart: () => void
 }
@@ -19,9 +25,13 @@ export function CoreDownloadModal({
   open,
   form,
   progress,
+  recommendation,
+  recommendationLoading,
+  recommendationError,
   proxies,
   setForm,
   setProgress,
+  onRefreshRecommendation,
   onClose,
   onStart,
 }: CoreDownloadModalProps) {
@@ -55,7 +65,7 @@ export function CoreDownloadModal({
           <Input
             value={form.name}
             onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-            placeholder="例如: chrome-139"
+            placeholder={recommendation?.namePlaceholder || '例如: chrome-latest'}
             disabled={progress !== null || isRedownload}
           />
           {!isRedownload && (
@@ -73,18 +83,43 @@ export function CoreDownloadModal({
           <Input
             value={form.url}
             onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))}
-            placeholder="https://github.com/.../chrome-linux.tar.xz"
+            placeholder={recommendationLoading ? '正在匹配当前环境...' : 'https://github.com/.../chromium.zip'}
             disabled={progress !== null}
           />
-          <div className="text-xs text-[var(--color-text-muted)] mt-2 flex items-center justify-between bg-[var(--color-bg-muted)] p-2 rounded">
-            <span>推荐指纹内核: fingerprint-chromium</span>
+          <div className="text-xs text-[var(--color-text-muted)] mt-2 flex items-center justify-between gap-3 bg-[var(--color-bg-muted)] p-2 rounded">
+            <span className="min-w-0 truncate">
+              {recommendation
+                ? `已按 ${recommendation.target.label} 推荐：${recommendation.assetName}`
+                : recommendationLoading
+                  ? '正在按当前环境获取推荐地址...'
+                  : recommendationError || '未获取到当前环境推荐地址'}
+            </span>
+            {recommendation && (
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, url: recommendation.downloadUrl }))}
+                className="shrink-0 text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
+                disabled={progress !== null}
+              >
+                使用推荐
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => BrowserOpenURL('https://github.com/adryfish/fingerprint-chromium/releases')}
-              className="text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
+              onClick={() => BrowserOpenURL(recommendation?.releasesUrl || FINGERPRINT_CHROMIUM_RELEASES_URL)}
+              className="shrink-0 text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
             >
-              前往 Releases 页面获取链接
+              打开 Releases
             </button>
+            {!recommendationLoading && !recommendation && (
+              <button
+                type="button"
+                onClick={onRefreshRecommendation}
+                className="shrink-0 text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
+              >
+                重试
+              </button>
+            )}
           </div>
         </FormItem>
 

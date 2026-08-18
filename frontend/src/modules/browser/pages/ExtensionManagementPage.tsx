@@ -32,6 +32,7 @@ export function ExtensionManagementPage() {
   const [importing, setImporting] = useState<'none' | 'file' | 'directory'>('none')
   const [updatingId, setUpdatingId] = useState('')
   const [busyId, setBusyId] = useState('')
+  const [busyAction, setBusyAction] = useState<'toggle' | 'delete' | ''>('')
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
   const [useProxy, setUseProxy] = useState(false)
   const [selectedProxyId, setSelectedProxyId] = useState('')
@@ -362,6 +363,7 @@ export function ExtensionManagementPage() {
 
   const handleToggle = async (item: BrowserExtension) => {
     setBusyId(item.extensionId)
+    setBusyAction('toggle')
     try {
       const updated = await setBrowserExtensionEnabled(item.extensionId, !item.enabled)
       setItems((current) => current.map((entry) => entry.extensionId === updated.extensionId ? updated : entry))
@@ -369,12 +371,14 @@ export function ExtensionManagementPage() {
       toast.error(error?.message || '更新插件状态失败')
     } finally {
       setBusyId('')
+      setBusyAction('')
     }
   }
 
   const handleDelete = async (item: BrowserExtension) => {
     if (!window.confirm(`删除插件「${item.name || item.extensionId}」？`)) return
     setBusyId(item.extensionId)
+    setBusyAction('delete')
     try {
       await deleteBrowserExtension(item.extensionId)
       setItems((current) => current.filter((entry) => entry.extensionId !== item.extensionId))
@@ -383,6 +387,7 @@ export function ExtensionManagementPage() {
       toast.error(error?.message || '删除插件失败')
     } finally {
       setBusyId('')
+      setBusyAction('')
     }
   }
 
@@ -518,6 +523,7 @@ export function ExtensionManagementPage() {
       <InstalledExtensionsList
         items={items}
         busyId={busyId}
+        busyAction={busyAction}
         updatingId={updatingId}
         onRestrictProfiles={setLimitExtension}
         onUpdate={(target) => void handleUpdateExtension(target)}

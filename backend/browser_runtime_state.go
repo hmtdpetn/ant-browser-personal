@@ -23,6 +23,11 @@ func copyBrowserProfileSnapshot(profile *BrowserProfile) *BrowserProfile {
 		return nil
 	}
 	snapshot := *profile
+	snapshot.FingerprintArgs = append([]string{}, profile.FingerprintArgs...)
+	snapshot.LaunchArgs = append([]string{}, profile.LaunchArgs...)
+	snapshot.LastLaunchArgs = append([]string{}, profile.LastLaunchArgs...)
+	snapshot.Tags = append([]string{}, profile.Tags...)
+	snapshot.Keywords = append([]string{}, profile.Keywords...)
 	return &snapshot
 }
 
@@ -96,6 +101,13 @@ func (a *App) markProfileRunningLocked(profileId string, profile *BrowserProfile
 	if debugReady && a.launchServer != nil {
 		a.launchServer.SetActiveProfile(profile)
 	}
+}
+
+func (a *App) markProfileLastLaunchArgsLocked(profile *BrowserProfile, args []string) {
+	if profile == nil {
+		return
+	}
+	profile.LastLaunchArgs = append([]string{}, args...)
 }
 
 func (a *App) markProfileDebugReadyLocked(profile *BrowserProfile, debugPort int) {

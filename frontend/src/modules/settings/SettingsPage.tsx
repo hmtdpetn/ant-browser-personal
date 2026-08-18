@@ -15,6 +15,8 @@ import {
   installAutomationRuntime,
   automationProbeSystemNode,
   automationRuntimeSelfCheck,
+  fetchLaunchServerSettings,
+  saveLaunchServerSettings,
   defaultAutomationState,
 } from './api'
 import type { AppSettings } from './types'
@@ -36,6 +38,10 @@ export function SettingsPage() {
   const [automationNodeSourceDraft, setAutomationNodeSourceDraft] = useState<AutomationNodeSource>('auto')
   const [automationSystemNodePathDraft, setAutomationSystemNodePathDraft] = useState('')
   const [automationRuntimeDirty, setAutomationRuntimeDirty] = useState(false)
+  const [launchServerPortDraft, setLaunchServerPortDraft] = useState('19876')
+  const [launchServerBaseUrl, setLaunchServerBaseUrl] = useState('')
+  const [launchServerReady, setLaunchServerReady] = useState(false)
+  const [launchServerSaving, setLaunchServerSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -72,12 +78,16 @@ export function SettingsPage() {
   const loadSettings = async () => {
     setLoading(true)
     try {
-      const [data, automation] = await Promise.all([
+      const [data, automation, launchServer] = await Promise.all([
         fetchSettings(),
         fetchAutomationState(),
+        fetchLaunchServerSettings(),
       ])
       setSettings(data)
       setAutomationState(automation)
+      setLaunchServerPortDraft(String(launchServer.preferredPort || launchServer.port || 19876))
+      setLaunchServerBaseUrl(launchServer.baseUrl)
+      setLaunchServerReady(launchServer.ready)
     } finally {
       setLoading(false)
     }
@@ -241,6 +251,27 @@ export function SettingsPage() {
     }
   }
 
+  const handleLaunchServerPortSave = async () => {
+    const port = Number(launchServerPortDraft)
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      toast.error('端口必须在 1-65535 之间')
+      return
+    }
+
+    setLaunchServerSaving(true)
+    try {
+      const next = await saveLaunchServerSettings(port)
+      setLaunchServerPortDraft(String(next.preferredPort || next.port || port))
+      setLaunchServerBaseUrl(next.baseUrl)
+      setLaunchServerReady(next.ready)
+      toast.success(`本地 API 端口已保存：${next.port}`)
+    } catch (error: any) {
+      toast.error(error?.message || '本地 API 端口保存失败')
+    } finally {
+      setLaunchServerSaving(false)
+    }
+  }
+
   const handleInitializeSystem = async () => {
     if (!confirm('初始化会清空当前数据并恢复默认状态，是否继续？')) {
       return
@@ -389,6 +420,10 @@ export function SettingsPage() {
         automationNodeSourceDraft={automationNodeSourceDraft}
         automationSystemNodePathDraft={automationSystemNodePathDraft}
         automationRuntimeDirty={automationRuntimeDirty}
+        launchServerPortDraft={launchServerPortDraft}
+        launchServerBaseUrl={launchServerBaseUrl}
+        launchServerReady={launchServerReady}
+        launchServerSaving={launchServerSaving}
         onEnabledChange={handleAutomationEnabledChange}
         onHeadlessChange={handleAutomationHeadlessChange}
         onNodeSourceDraftChange={(value) => {
@@ -401,6 +436,8 @@ export function SettingsPage() {
           setAutomationProbe(null)
           setAutomationRuntimeDirty(true)
         }}
+        onLaunchServerPortDraftChange={setLaunchServerPortDraft}
+        onSaveLaunchServerPort={() => { void handleLaunchServerPortSave() }}
         onTypeScriptBuildChange={handleAutomationTypeScriptBuildChange}
         onProbeSystemNode={() => { void handleAutomationProbeSystemNode() }}
         onSaveRuntimeSettings={() => { void handleAutomationRuntimeSettingsSave() }}

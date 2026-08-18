@@ -18,6 +18,7 @@ var managedLaunchArgSpecs = []managedLaunchArgSpec{
 	{prefix: "--proxy-server", takesValue: true},
 	{prefix: "--load-extension", takesValue: true},
 	{prefix: "--disable-extensions-except", takesValue: true},
+	{prefix: "--restore-last-session", takesValue: false},
 }
 
 func sanitizeManagedLaunchArgs(args []string) ([]string, []string) {

@@ -57,7 +57,16 @@ export function BrowserLogsPage() {
   const [timeTo, setTimeTo] = useState('')
   const [autoScroll, setAutoScroll] = useState(false)
   const [loading, setLoading] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const logContainerRef = useRef<HTMLDivElement>(null)
+  const initialScrollDoneRef = useRef(false)
+
+  const scrollLogsToBottom = (behavior: ScrollBehavior = 'auto') => {
+    requestAnimationFrame(() => {
+      const container = logContainerRef.current
+      if (!container) return
+      container.scrollTo({ top: container.scrollHeight, behavior })
+    })
+  }
 
   const load = async () => {
     setLoading(true)
@@ -77,7 +86,7 @@ export function BrowserLogsPage() {
 
   useEffect(() => {
     if (autoScroll) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      scrollLogsToBottom('smooth')
     }
   }, [logs, autoScroll])
 
@@ -109,6 +118,12 @@ export function BrowserLogsPage() {
     if (fq && !fieldText.includes(fq)) return false
     return true
   })
+  useEffect(() => {
+    if (initialScrollDoneRef.current || loading || logs.length === 0) return
+    initialScrollDoneRef.current = true
+    scrollLogsToBottom('auto')
+  }, [filtered.length, loading, logs.length])
+
   const components = Array.from(new Set(logs.map(entry => entry.component).filter(Boolean))).sort()
   const methods = Array.from(new Set(logs.map(entry => String(entry.fields?.method || '')).filter(Boolean))).sort()
   const resetFilters = () => {
@@ -254,6 +269,7 @@ export function BrowserLogsPage() {
       {/* 日志列表 */}
       <Card padding="none">
         <div
+          ref={logContainerRef}
           className="overflow-auto font-mono text-xs"
           style={{ maxHeight: 'calc(100vh - 280px)' }}
         >
@@ -292,7 +308,6 @@ export function BrowserLogsPage() {
               </tbody>
             </table>
           )}
-          <div ref={bottomRef} />
         </div>
       </Card>
     </div>

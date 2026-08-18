@@ -1,8 +1,9 @@
-﻿export interface BrowserProfile {
+export interface BrowserProfile {
   profileId: string
   profileName: string
   userDataDir: string
   coreId: string
+  restoreLastSession?: '' | 'enabled' | 'disabled' | string
   fingerprintArgs: string[]
   proxyId: string
   proxyConfig: string
@@ -10,7 +11,9 @@
   proxyBindSourceUrl?: string
   proxyBindName?: string
   proxyBindUpdatedAt?: string
+  memoryLimitMb: number
   launchArgs: string[]
+  lastLaunchArgs?: string[]
   tags: string[]
   keywords: string[]
   groupId?: string
@@ -32,13 +35,98 @@ export interface BrowserProfileInput {
   profileName: string
   userDataDir: string
   coreId: string
+  restoreLastSession?: '' | 'enabled' | 'disabled' | string
   fingerprintArgs: string[]
   proxyId: string
   proxyConfig: string
+  memoryLimitMb: number
   launchArgs: string[]
   tags: string[]
   keywords: string[]
   groupId?: string
+}
+
+export interface BrowserFingerprintRuntimeInfo {
+  language: string
+  languages: string[]
+  timezone: string
+  hardwareConcurrency: number
+  deviceMemory: number
+  maxTouchPoints: number
+  doNotTrack: string
+  mediaDeviceCount: number
+  platform: string
+  userAgent: string
+  userAgentData: string
+  webdriver: boolean
+  screenWidth: number
+  screenHeight: number
+  colorDepth: number
+  innerWidth: number
+  innerHeight: number
+  outerWidth: number
+  outerHeight: number
+  devicePixelRatio: number
+  webglVendor: string
+  webglRenderer: string
+  canvasHash: string
+  audioHash: string
+  clientRectsHash: string
+  plugins: string[]
+}
+
+export interface BrowserFingerprintExpectedInfo {
+  language: string
+  acceptLanguage: string
+  timezone: string
+  hardwareConcurrency: string
+  deviceMemory: string
+  colorDepth: string
+  touchPoints: string
+  windowSize: string
+  brand: string
+  brandVersion: string
+  platform: string
+  platformVersion: string
+  seed: string
+  disableSpoofing: string
+  webrtcPolicy: string
+  doNotTrack: string
+  mediaDevices: string
+  canvasNoise: string
+  audioNoise: string
+  clientRectsNoise: string
+  fontList: string
+  webglVendor: string
+  webglRenderer: string
+}
+
+export interface BrowserFingerprintCheckResult {
+  profileId: string
+  runtime: BrowserFingerprintRuntimeInfo
+  expected: BrowserFingerprintExpectedInfo
+}
+
+export interface BrowserFingerprintCapabilityRow {
+  capability: string
+  status: string
+  inputArg: string
+  runtimeArg: string
+  action: string
+  note: string
+}
+
+export interface BrowserFingerprintCapabilityReport {
+  profileId: string
+  coreId: string
+  coreName: string
+  chromeVersion: string
+  chromeMajor: number
+  versionStatus: string
+  rawArgs: string[]
+  launchArgs: string[]
+  rows: BrowserFingerprintCapabilityRow[]
+  warnings: string[]
 }
 
 export interface BrowserProfilePackageExportResult {
