@@ -12,6 +12,7 @@ import (
 type BuildDiagnosticOptions struct {
 	XrayMgr    *XrayManager
 	SingBoxMgr *SingBoxManager
+	ClashMgr   *ClashManager
 }
 
 // ProxyBuildDiagnostic 是不启动桥接进程的代理构建诊断结果。
@@ -83,12 +84,46 @@ func BuildProxyDiagnostic(proxyConfig string, proxies []config.BrowserProxy, pro
 
 	src = normalizeNodeScheme(src)
 	result.RawConfigMasked = maskProxyConfig(src)
-	if IsSingBoxProtocol(src) {
-		buildSingBoxDiagnostic(src, options.SingBoxMgr, &result)
+	resolution, err := ResolveProxyKernel(src, proxies, proxyId, "")
+	if err != nil {
+		result.Errors = append(result.Errors, err.Error())
 		return result
 	}
-	buildXrayDiagnostic(src, proxies, proxyId, options.XrayMgr, &result)
+	switch resolution.Kernel {
+	case ProxyKernelMihomo:
+		buildMihomoDiagnostic(src, options.ClashMgr, &result)
+		return result
+	case ProxyKernelSingBox:
+		buildSingBoxDiagnostic(src, options.SingBoxMgr, &result)
+		return result
+	case ProxyKernelXray:
+		buildXrayDiagnostic(src, proxies, proxyId, options.XrayMgr, &result)
+		return result
+	case ProxyKernelNative:
+		result.Engine = "native"
+		result.Ok = true
+		result.StandardProxy = maskProxyConfig(src)
+		return result
+	}
+	result.Errors = append(result.Errors, fmt.Sprintf("无法为协议 %s 选择代理内核", resolution.Protocol))
 	return result
+}
+
+func buildMihomoDiagnostic(src string, manager *ClashManager, result *ProxyBuildDiagnostic) {
+	result.Engine = "mihomo"
+	node, err := buildMihomoNode(src)
+	if err != nil {
+		result.Errors = append(result.Errors, err.Error())
+		return
+	}
+	result.Ok = true
+	result.NodeKey = computeNodeKey(src + "\x00mihomo")
+	result.Outbound = sanitizeDiagnosticMap(node)
+	if manager != nil {
+		workDir := manager.resolveMihomoWorkdir(result.NodeKey)
+		result.Runtime = buildRuntimeDiagnostic(workDir, "mihomo-config.yaml", "mihomo-stderr.log", "", "")
+		fillMihomoBridgeState(manager, result.NodeKey, &result.Runtime)
+	}
 }
 
 func buildSingBoxDiagnostic(src string, manager *SingBoxManager, result *ProxyBuildDiagnostic) {
@@ -218,6 +253,20 @@ func fillSingBoxBridgeState(manager *SingBoxManager, key string, runtime *ProxyR
 	runtime.BridgeAlive = bridge.Running && !bridge.Stopping
 	runtime.BridgePort = bridge.Port
 	runtime.LastError = bridge.LastError
+}
+
+func fillMihomoBridgeState(manager *ClashManager, key string, runtime *ProxyRuntimeDiagnostic) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	bridge := manager.NodeBridges[key]
+	if bridge == nil {
+		return
+	}
+	runtime.BridgeAlive = bridge.Running
+	runtime.BridgePort = bridge.Port
+	if bridge.ExitErr != nil {
+		runtime.LastError = bridge.ExitErr.Error()
+	}
 }
 
 func findProxyForDiagnostic(proxies []config.BrowserProxy, proxyId string) (config.BrowserProxy, bool) {

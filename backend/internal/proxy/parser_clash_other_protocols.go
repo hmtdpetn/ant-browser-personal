@@ -75,8 +75,7 @@ func buildOutboundFromClashSS(node map[string]interface{}) (map[string]interface
 		},
 	}
 	if plugin := getMapString(node, "plugin"); plugin != "" {
-		pluginOpts := getMapString(node, "plugin-opts")
-		_ = pluginOpts
+		return nil, "", fmt.Errorf("Shadowsocks plugin=%s 需要使用 Mihomo 内核，不能按裸 SS 走 Xray", plugin)
 	}
 	return out, "", nil
 }

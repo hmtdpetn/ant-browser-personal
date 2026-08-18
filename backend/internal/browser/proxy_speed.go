@@ -17,12 +17,22 @@ type ProxySpeedScheduler struct {
 	stopCh    chan struct{}
 	mu        sync.Mutex
 	running   bool
+	testing   bool
 }
+
+const (
+	DefaultProxySpeedInterval     = 30 * time.Minute
+	DefaultProxySpeedInitialDelay = 2 * time.Minute
+	DefaultProxySpeedConcurrency  = 2
+)
 
 // NewProxySpeedScheduler 创建调度器，interval 为测速间隔，concLimit 为并发数
 func NewProxySpeedScheduler(dao ProxyDAO, testFn SpeedTestFunc, interval time.Duration, concLimit int) *ProxySpeedScheduler {
+	if interval <= 0 {
+		interval = DefaultProxySpeedInterval
+	}
 	if concLimit <= 0 {
-		concLimit = 5
+		concLimit = DefaultProxySpeedConcurrency
 	}
 	return &ProxySpeedScheduler{
 		dao:       dao,
@@ -61,9 +71,9 @@ func (s *ProxySpeedScheduler) RunOnce() {
 }
 
 func (s *ProxySpeedScheduler) loop() {
-	// 启动后延迟 10s 跑第一轮，避免影响启动速度
+	// 启动后延迟一段时间跑第一轮，避免启动阶段频繁拉起代理内核。
 	select {
-	case <-time.After(10 * time.Second):
+	case <-time.After(DefaultProxySpeedInitialDelay):
 	case <-s.stopCh:
 		return
 	}
@@ -82,6 +92,11 @@ func (s *ProxySpeedScheduler) loop() {
 }
 
 func (s *ProxySpeedScheduler) runAll() {
+	if !s.beginRun() {
+		return
+	}
+	defer s.finishRun()
+
 	proxies, err := s.dao.List()
 	if err != nil || len(proxies) == 0 {
 		return
@@ -107,4 +122,20 @@ func (s *ProxySpeedScheduler) runAll() {
 		}(p.ProxyId)
 	}
 	wg.Wait()
+}
+
+func (s *ProxySpeedScheduler) beginRun() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.testing {
+		return false
+	}
+	s.testing = true
+	return true
+}
+
+func (s *ProxySpeedScheduler) finishRun() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.testing = false
 }

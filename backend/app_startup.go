@@ -12,7 +12,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -211,8 +210,8 @@ func (a *App) startupInitSpeedScheduler() {
 			r := a.testProxySpeedWithConnector(proxyId, a.getLatestProxies(), connectorType)
 			return r.Ok, r.LatencyMs, r.Error
 		},
-		5*time.Minute,
-		5,
+		browser.DefaultProxySpeedInterval,
+		browser.DefaultProxySpeedConcurrency,
 	)
 	a.speedScheduler.Start()
 }

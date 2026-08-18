@@ -11,12 +11,6 @@ export interface NavSection {
 
 export const navigationConfig: NavSection[] = [
   {
-    title: '主菜单',
-    items: [
-      { name: '控制台', path: '/', icon: 'LayoutDashboard' },
-    ]
-  },
-  {
     title: '指纹浏览器',
     items: [
       { name: '实例列表', path: '/browser/list', icon: 'Monitor' },

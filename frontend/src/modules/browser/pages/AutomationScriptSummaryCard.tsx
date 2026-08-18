@@ -92,19 +92,22 @@ export function AutomationScriptSummaryCard({
         className={`absolute bottom-3 left-3 top-3 w-1 rounded-full ${card.railClassName}`}
       />
 
-      <div className="flex min-w-0 items-start gap-2">
+      <div className="relative min-w-0 pr-16">
         {selectable ? (
           <input
             type="checkbox"
             checked={selected}
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => onSelectedChange?.(event.currentTarget.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--color-border-strong)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+            className="absolute left-0 top-0.5 h-4 w-4 rounded border-[var(--color-border-strong)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
             aria-label={`选择 ${card.title}`}
           />
         ) : null}
-        <div className="min-w-0 text-[16px] font-semibold leading-5 text-[var(--color-text-primary)]">
+        <div className={`min-w-0 text-[16px] font-semibold leading-5 text-[var(--color-text-primary)] ${selectable ? "pl-6" : ""}`}>
           {card.title}
+        </div>
+        <div className="absolute right-0 top-0 rounded-full border border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-2 py-0.5 text-[10px] font-medium leading-4 text-[var(--color-text-secondary)]">
+          {card.versionLabel}
         </div>
       </div>
 

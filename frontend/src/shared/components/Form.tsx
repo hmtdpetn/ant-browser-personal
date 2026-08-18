@@ -17,11 +17,20 @@ export function FormItem({ label, required, hint, error, children, className }: 
   return (
     <div className={clsx('space-y-1.5', className)}>
       {label && (
-        <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
-          {label}
-          {required && <span className="text-[var(--color-error)] ml-0.5">*</span>}
-          {hint && <span className="text-xs font-normal text-[var(--color-text-muted)] ml-1">({hint})</span>}
-        </label>
+        <div className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-secondary)]">
+          <span>
+            {label}
+            {required && <span className="text-[var(--color-error)] ml-0.5">*</span>}
+          </span>
+          {hint && (
+            <span className="group relative inline-flex" tabIndex={0} aria-label={hint} title={hint}>
+              <span className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-[var(--color-border-muted)] text-[10px] font-semibold leading-none text-[var(--color-text-muted)]">?</span>
+              <span className="pointer-events-none absolute left-0 top-5 z-50 hidden w-64 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-xs font-normal leading-5 text-[var(--color-text-secondary)] shadow-lg group-hover:block group-focus:block">
+                {hint}
+              </span>
+            </span>
+          )}
+        </div>
       )}
       {children}
       {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}

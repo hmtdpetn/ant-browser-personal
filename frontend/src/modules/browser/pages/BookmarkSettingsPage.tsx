@@ -4,6 +4,11 @@ import { Button, Card, ConfirmModal, Input, toast } from '../../../shared/compon
 import type { BrowserBookmark } from '../types'
 import { fetchBookmarks, resetBookmarks, saveBookmarks, syncBookmarksToProfiles } from '../api'
 
+const fingerprintCheckBookmarkUrl = 'ant://fingerprint-check'
+
+const isProtectedBookmark = (item: BrowserBookmark) =>
+  item.url.trim().toLowerCase() === fingerprintCheckBookmarkUrl
+
 export function BookmarkSettingsPage() {
   const [items, setItems] = useState<BrowserBookmark[]>([])
   const [saving, setSaving] = useState(false)
@@ -16,7 +21,15 @@ export function BookmarkSettingsPage() {
     fetchBookmarks().then(setItems)
   }, [])
 
+  const protectedItems = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => isProtectedBookmark(item))
+  const regularItems = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !isProtectedBookmark(item))
+
   const handleChange = (index: number, field: keyof BrowserBookmark, value: string) => {
+    if (field !== 'openOnStart' && isProtectedBookmark(items[index])) return
     setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item))
   }
 
@@ -25,6 +38,7 @@ export function BookmarkSettingsPage() {
   }
 
   const handleDelete = (index: number) => {
+    if (isProtectedBookmark(items[index])) return
     setItems(prev => prev.filter((_, i) => i !== index))
   }
 
@@ -86,10 +100,14 @@ export function BookmarkSettingsPage() {
   }
 
   // 拖拽排序
-  const handleDragStart = (index: number) => setDragIndex(index)
+  const handleDragStart = (index: number) => {
+    if (isProtectedBookmark(items[index])) return
+    setDragIndex(index)
+  }
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
     if (dragIndex === null || dragIndex === index) return
+    if (isProtectedBookmark(items[dragIndex]) || isProtectedBookmark(items[index])) return
     setItems(prev => {
       const next = [...prev]
       const [moved] = next.splice(dragIndex, 1)
@@ -120,11 +138,46 @@ export function BookmarkSettingsPage() {
         </div>
       </div>
 
-      <Card title={`书签列表（${items.length} 项）`} subtitle="拖拽左侧图标可调整顺序">
+      <Card title={`内置检测（${protectedItems.length} 项）`}>
         <div className="space-y-2">
-          {items.map((item, index) => (
+          {protectedItems.map(({ item, index }) => (
             <div
-              key={index}
+              key={`${item.url}-${index}`}
+              className="flex items-center gap-2 p-2.5 rounded-xl bg-[var(--color-bg-muted)] shadow-[var(--shadow-sm)]"
+            >
+              <GripVertical className="w-4 h-4 text-[var(--color-text-muted)] opacity-40 shrink-0" />
+              <Input
+                value={item.name}
+                readOnly
+                className="w-36 shrink-0 bg-[var(--color-bg-subtle)]"
+              />
+              <Input
+                value={item.url}
+                readOnly
+                className="flex-1 bg-[var(--color-bg-subtle)]"
+              />
+              <label className="flex items-center gap-1.5 px-2 text-xs text-[var(--color-text-secondary)] whitespace-nowrap select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(item.openOnStart)}
+                  onChange={e => handleOpenOnStartChange(index, e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--color-border-default)] accent-[var(--color-accent)]"
+                />
+                启动打开
+              </label>
+              <span className="px-2 py-1 rounded-lg bg-[var(--color-bg-subtle)] text-xs text-[var(--color-text-muted)] shrink-0">
+                内置
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title={`书签列表（${regularItems.length} 项）`} subtitle="拖拽左侧图标可调整顺序">
+        <div className="space-y-2">
+          {regularItems.map(({ item, index }) => (
+            <div
+              key={`${item.url}-${index}`}
               draggable
               onDragStart={() => handleDragStart(index)}
               onDragOver={e => handleDragOver(e, index)}
@@ -167,7 +220,7 @@ export function BookmarkSettingsPage() {
             </div>
           ))}
 
-          {items.length === 0 && (
+          {regularItems.length === 0 && (
             <p className="text-sm text-[var(--color-text-muted)] text-center py-6">
               暂无书签，点击下方按钮添加
             </p>

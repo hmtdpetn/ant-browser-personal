@@ -4,6 +4,8 @@ import { Button, Modal } from '../../../shared/components'
 
 type BackupMode = 'export' | 'import-merge' | 'import-reset' | 'none'
 
+const footerButtonClassName = 'shrink-0 whitespace-nowrap'
+
 interface BrowserBackupModalProps {
   open: boolean
   runningCount: number
@@ -38,21 +40,21 @@ export function BrowserBackupModal({
         if (!busy) onClose()
       }}
       title="备份与导入"
-      width="560px"
+      width="720px"
       closable={!busy}
       footer={(
         <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>关闭</Button>
-          <Button variant="secondary" onClick={onImportMerge} loading={loadingMode === 'import-merge'} disabled={busy && loadingMode !== 'import-merge'}>
+          <Button className={footerButtonClassName} variant="secondary" onClick={onClose} disabled={busy}>关闭</Button>
+          <Button className={footerButtonClassName} variant="secondary" onClick={onImportMerge} loading={loadingMode === 'import-merge'} disabled={busy && loadingMode !== 'import-merge'}>
             <Upload className="w-4 h-4" />合并导入
           </Button>
-          <Button variant="danger" onClick={onImportReset} loading={loadingMode === 'import-reset'} disabled={busy && loadingMode !== 'import-reset'}>
+          <Button className={footerButtonClassName} variant="danger" onClick={onImportReset} loading={loadingMode === 'import-reset'} disabled={busy && loadingMode !== 'import-reset'}>
             清空恢复
           </Button>
-          <Button variant="secondary" onClick={onExportSelected} loading={selectedExporting} disabled={selectedCount === 0 || (busy && !selectedExporting)}>
+          <Button className={footerButtonClassName} variant="secondary" onClick={onExportSelected} loading={selectedExporting} disabled={selectedCount === 0 || (busy && !selectedExporting)}>
             <Download className="w-4 h-4" />备份选中
           </Button>
-          <Button onClick={onExportFull} loading={loadingMode === 'export'} disabled={busy && loadingMode !== 'export'}>
+          <Button className={footerButtonClassName} onClick={onExportFull} loading={loadingMode === 'export'} disabled={busy && loadingMode !== 'export'}>
             <Download className="w-4 h-4" />全量备份
           </Button>
         </>

@@ -233,7 +233,10 @@ func (m *XrayManager) launchBridgeAttempt(log *logger.Logger, key string, binary
 
 func chainSocks5Outbound(hop chainSocks5Hop, tag string, nextTag string) map[string]interface{} {
 	protocol := normalizeChainHopProtocol(hop.Protocol)
-	if protocol == "http" {
+	if protocol == "http" || protocol == "https" {
+		if protocol == "https" {
+			hop.TLS = true
+		}
 		return chainHTTPOutbound(hop, tag, nextTag)
 	}
 
@@ -291,6 +294,14 @@ func chainHTTPOutbound(hop chainSocks5Hop, tag string, nextTag string) map[strin
 		"settings": map[string]interface{}{
 			"servers": []interface{}{server},
 		},
+	}
+	if hop.TLS {
+		outbound["streamSettings"] = map[string]interface{}{
+			"security": "tls",
+			"tlsSettings": map[string]interface{}{
+				"serverName": strings.TrimSpace(hop.Server),
+			},
+		}
 	}
 	if strings.TrimSpace(nextTag) != "" {
 		outbound["proxySettings"] = map[string]interface{}{

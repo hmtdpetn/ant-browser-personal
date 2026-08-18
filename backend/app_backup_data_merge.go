@@ -274,6 +274,27 @@ WHERE NOT EXISTS (
 				}
 			}
 		}
+		if item.name == "browser_profiles" {
+			hasRestoreLastSession, err := backupSrcColumnExists(tx, item.name, "restore_last_session")
+			if err != nil {
+				return err
+			}
+			if hasRestoreLastSession {
+				if resetFirst {
+					sqlText = `INSERT INTO browser_profiles (profile_id, profile_name, user_data_dir, core_id, fingerprint_args, proxy_id, proxy_config, launch_args, tags, keywords, group_id, created_at, updated_at, restore_last_session)
+SELECT profile_id, profile_name, user_data_dir, core_id, fingerprint_args, proxy_id, proxy_config, launch_args, tags, keywords, COALESCE(group_id,''), created_at, updated_at, COALESCE(restore_last_session,'')
+FROM src.browser_profiles`
+				} else {
+					sqlText = `INSERT INTO browser_profiles (profile_id, profile_name, user_data_dir, core_id, fingerprint_args, proxy_id, proxy_config, launch_args, tags, keywords, group_id, created_at, updated_at, restore_last_session)
+SELECT s.profile_id, s.profile_name, s.user_data_dir, s.core_id, s.fingerprint_args, s.proxy_id, s.proxy_config, s.launch_args, s.tags, s.keywords, COALESCE(s.group_id,''), s.created_at, s.updated_at, COALESCE(s.restore_last_session,'')
+FROM src.browser_profiles s
+WHERE NOT EXISTS (
+  SELECT 1 FROM browser_profiles t
+  WHERE t.profile_id = s.profile_id OR lower(t.user_data_dir) = lower(s.user_data_dir)
+)`
+				}
+			}
+		}
 		res, err := tx.Exec(sqlText)
 		if err != nil {
 			return fmt.Errorf("导入数据表失败(%s): %w", item.name, err)

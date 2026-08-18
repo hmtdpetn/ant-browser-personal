@@ -2922,31 +2922,17 @@
         }
 
         candidates.sort((a, b) => {
+          if (a.top !== b.top) {
+            return a.top - b.top
+          }
           if (b.matchedSignals !== a.matchedSignals) {
             return b.matchedSignals - a.matchedSignals
           }
           if (b.score !== a.score) {
             return b.score - a.score
           }
-          if (preferLatest) {
-            if (b.isMessageCandidate !== a.isMessageCandidate) {
-              return Number(b.isMessageCandidate) - Number(a.isMessageCandidate)
-            }
-            if (a.timeMs > 0 && b.timeMs > 0 && b.timeMs !== a.timeMs) {
-              return b.timeMs - a.timeMs
-            }
-            if (a.domIndex !== b.domIndex) {
-              return a.domIndex - b.domIndex
-            }
-            if (a.top !== b.top) {
-              return a.top - b.top
-            }
-            if (b.matchedSignals !== a.matchedSignals) {
-              return b.matchedSignals - a.matchedSignals
-            }
-          }
-          if (a.top !== b.top) {
-            return a.top - b.top
+          if (a.domIndex !== b.domIndex) {
+            return a.domIndex - b.domIndex
           }
           return a.left - b.left
         })
@@ -3773,93 +3759,79 @@
       }
     }
 
-    for (let candidateIndex = 0; candidateIndex < maxCandidateChecks; candidateIndex += 1) {
-      await stabilizeMessageListSurface()
-      const previousMailSnapshot = await getOpenedMailSnapshot()
-      await markSettingsDrawerProbeAction('search-row:pick', {
-        pass: searchPass + 1,
-        label: attempt.label,
-        query,
-        candidateIndex,
-      })
-      clickedRow = await pickMessageRow(attemptFilters, candidateIndex)
-      if (!clickedRow) {
-        break
-      }
+    const candidateIndex = 0
+    await stabilizeMessageListSurface()
+    const previousMailSnapshot = await getOpenedMailSnapshot()
+    await markSettingsDrawerProbeAction('search-row:pick', {
+      pass: searchPass + 1,
+      label: attempt.label,
+      query,
+      candidateIndex,
+    })
+    clickedRow = await pickMessageRow(attemptFilters, candidateIndex)
+    if (!clickedRow) {
+      continue
+    }
 
-      await markSettingsDrawerProbeAction('search-row:open', {
-        pass: searchPass + 1,
-        label: attempt.label,
-        query,
-        candidateIndex,
-      })
-      const clickResult = await openPickedMessageRow(clickedRow)
-      const clicked = clickResult.clicked
-      await flushSettingsDrawerProbe('after-open-picked-row', {
-        label: attempt.label,
-        query,
-        pass: searchPass + 1,
-        candidateIndex,
-        clicked,
-        strategy: clickResult.strategy,
-      })
+    await markSettingsDrawerProbeAction('search-row:open', {
+      pass: searchPass + 1,
+      label: attempt.label,
+      query,
+      candidateIndex,
+    })
+    const clickResult = await openPickedMessageRow(clickedRow)
+    const clicked = clickResult.clicked
+    await flushSettingsDrawerProbe('after-open-picked-row', {
+      label: attempt.label,
+      query,
+      pass: searchPass + 1,
+      candidateIndex,
+      clicked,
+      strategy: clickResult.strategy,
+    })
 
-      const openedMailReady = await waitForOpenedMailChange(previousMailSnapshot)
-      if (!openedMailReady) {
-        await page.waitForLoadState('networkidle', { timeout: Math.min(timeoutMs, 1200) }).catch(() => {})
-        if (waitAfterOpenMs > 0) {
-          await sleep(waitAfterOpenMs)
-        }
-      }
-      log('openedMailSignal', {
-        candidateIndex,
-        clicked,
-        ready: openedMailReady,
-        strategy: clickResult.strategy,
-      })
-      const openedCodeResult = await waitForOpenedVerificationCode()
-      mail = openedCodeResult.mail || (await extractOpenedMail())
-      if (!mail) {
-        matchReport = { ok: false, mismatches: ['邮件详情未打开'] }
-        continue
-      }
-      senderInfo = extractMailbox([mail.headerText, mail.metaText, mail.contentText], ['从', '发件人', 'from', 'sender'])
-      recipientInfo = extractMailbox([mail.headerText, mail.metaText, mail.contentText], ['收件人', 'to', 'recipient'])
-      verificationCode = openedCodeResult.verificationCode || extractVerificationCode(mail.contentText, mail.metaText, mail.headerText)
-      signature = extractSignature(mail.contentText)
-      mailboxName = senderInfo.name || senderInfo.email
-      matchReport = matchMailAgainstFilters(mail, senderInfo, recipientInfo, attemptFilters)
-
-      log('candidateCheck', {
-        searchQuery: query,
-        pass: searchPass + 1,
-        candidateIndex,
-        matchedBy: clickedRow.matchedBy,
-        subject: mail.subject,
-        senderEmail: senderInfo.email,
-        recipientEmail: recipientInfo.email,
-        mismatches: matchReport.mismatches,
-      })
-
-      if (matchReport.ok) {
-        break
+    const openedMailReady = await waitForOpenedMailChange(previousMailSnapshot)
+    if (!openedMailReady) {
+      await page.waitForLoadState('networkidle', { timeout: Math.min(timeoutMs, 1200) }).catch(() => {})
+      if (waitAfterOpenMs > 0) {
+        await sleep(waitAfterOpenMs)
       }
     }
+    log('openedMailSignal', {
+      candidateIndex,
+      clicked,
+      ready: openedMailReady,
+      strategy: clickResult.strategy,
+    })
+    const openedCodeResult = await waitForOpenedVerificationCode()
+    mail = openedCodeResult.mail || (await extractOpenedMail())
+    if (!mail) {
+      matchReport = { ok: false, mismatches: ['邮件详情未打开'] }
+      continue
+    }
+    senderInfo = extractMailbox([mail.headerText, mail.metaText, mail.contentText], ['从', '发件人', 'from', 'sender'])
+    recipientInfo = extractMailbox([mail.headerText, mail.metaText, mail.contentText], ['收件人', 'to', 'recipient'])
+    verificationCode = openedCodeResult.verificationCode || extractVerificationCode(mail.contentText, mail.metaText, mail.headerText)
+    signature = extractSignature(mail.contentText)
+    mailboxName = senderInfo.name || senderInfo.email
+    matchReport = matchMailAgainstFilters(mail, senderInfo, recipientInfo, attemptFilters)
+
+    log('candidateCheck', {
+      searchQuery: query,
+      pass: searchPass + 1,
+      candidateIndex,
+      matchedBy: clickedRow.matchedBy,
+      subject: mail.subject,
+      senderEmail: senderInfo.email,
+      recipientEmail: recipientInfo.email,
+      mismatches: matchReport.mismatches,
+    })
 
     if (mail && matchReport.ok) {
       break
     }
     }
-    if (!mail || !matchReport.ok) {
-      log('searchPassRetry', {
-        pass: searchPass + 1,
-        maxSearchPasses,
-        retrying: searchPass + 1 < maxSearchPasses,
-      })
-      if (searchPass + 1 < maxSearchPasses) {
-        await sleep(Math.max(500, Math.min(searchResultTimeoutMs, 2000)))
-      }
-    }
+    break
   }
 
   if (searchedQueries.length === 0) {

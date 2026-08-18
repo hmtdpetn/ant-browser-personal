@@ -101,7 +101,7 @@ export function ToastContainer() {
   const toasts = useToastStore((state) => state.toasts)
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+    <div className="fixed top-4 right-4 z-[10000] flex flex-col gap-2 max-w-md">
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} />
       ))}

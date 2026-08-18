@@ -241,16 +241,26 @@ export function AutomationPage() {
       throw new Error("未导入任何脚本");
     }
 
-    setScripts((current) => mergeImportedScripts(current, imported));
+    const importTimestamp = new Date().toISOString();
+    const nextImported = imported.map((script) => ({
+      ...script,
+      source: {
+        ...script.source,
+        importedAt: importTimestamp,
+      },
+      updatedAt: importTimestamp,
+    }));
+
+    setScripts((current) => mergeImportedScripts(current, nextImported));
     setImportOpen(false);
     resetImportModal();
-    if (imported.length === 1 && failedCount === 0) {
+    if (nextImported.length === 1 && failedCount === 0) {
       toast.success("脚本已导入");
-      openScript(imported[0].id);
+      openScript(nextImported[0].id);
       return;
     }
 
-    toast.success(`已导入 ${imported.length} 个脚本`);
+    toast.success(`已导入 ${nextImported.length} 个脚本`);
     if (failedCount > 0) {
       toast.warning(`${failedCount} 个脚本包导入失败`);
     }

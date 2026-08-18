@@ -14,11 +14,14 @@ func IsMihomoOnlyProtocol(proxyConfig string) bool {
 func mihomoOnlyProtocolType(proxyConfig string) string {
 	nodeType := clashNodeType(proxyConfig)
 	switch nodeType {
-	case "mieru":
+	case "mieru", "wireguard":
 		return nodeType
-	default:
-		return ""
+	case "ss", "shadowsocks":
+		if clashNodeHasPlugin(proxyConfig) {
+			return nodeType
+		}
 	}
+	return ""
 }
 
 func validateMihomoOnlyProtocol(proxyConfig string) error {
@@ -31,13 +34,27 @@ func validateMihomoOnlyProtocol(proxyConfig string) error {
 	if node == nil {
 		return fmt.Errorf("mihomo 节点解析失败")
 	}
+	nodeType := strings.ToLower(strings.TrimSpace(getMapString(node, "type")))
 	if getMapString(node, "server") == "" {
-		return fmt.Errorf("mieru 节点缺少 server")
+		return fmt.Errorf("%s 节点缺少 server", nodeType)
 	}
 	if getMapInt(node, "port") == 0 {
-		return fmt.Errorf("mieru 节点缺少 port")
+		return fmt.Errorf("%s 节点缺少 port", nodeType)
 	}
 	return nil
+}
+
+func clashNodeHasPlugin(proxyConfig string) bool {
+	src := strings.TrimSpace(proxyConfig)
+	var payload interface{}
+	if err := yaml.Unmarshal([]byte(src), &payload); err != nil {
+		return false
+	}
+	node := pickClashNode(payload)
+	if node == nil {
+		return false
+	}
+	return getMapString(node, "plugin") != ""
 }
 
 func clashNodeType(proxyConfig string) string {

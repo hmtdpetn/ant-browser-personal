@@ -7,7 +7,9 @@ interface CoreSettingsCardProps {
   onEdit: () => void
 }
 
-const settingsValueClass = 'h-14 overflow-auto rounded-md bg-[var(--color-bg-subtle)] px-3 py-2 text-sm leading-5 text-[var(--color-text-primary)]'
+const settingsValueClass = 'min-h-8 rounded-lg border border-[var(--color-border-muted)] bg-[var(--color-bg-subtle)] px-2.5 py-1.5 text-sm leading-5 text-[var(--color-text-primary)]'
+const settingsListClass = 'min-h-9 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-muted)] bg-[var(--color-bg-subtle)] px-3 py-2 text-sm leading-5 text-[var(--color-text-primary)]'
+const settingsCompactListClass = `${settingsValueClass} max-h-16 overflow-auto whitespace-pre-wrap`
 
 export function CoreSettingsCard({ settings, onEdit }: CoreSettingsCardProps) {
   return (
@@ -22,23 +24,27 @@ export function CoreSettingsCard({ settings, onEdit }: CoreSettingsCardProps) {
           编辑
         </Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SettingsValue label="用户数据根目录" value={settings.userDataRoot || '-'} />
-        <SettingsList label="默认指纹参数" values={settings.defaultFingerprintArgs} />
-        <SettingsList label="默认启动参数" values={settings.defaultLaunchArgs} />
-        <SettingsList label="默认启动页面" values={settings.defaultStartUrls} />
-        <SettingsValue label="恢复上次标签页" value={settings.restoreLastSession ? '开启' : '关闭'} />
-        <SettingsValue label="轻启动模式" value={settings.lightStartEnabled ? '开启' : '关闭'} />
-        <SettingsValue label="启动就绪超时" value={`${settings.startReadyTimeoutMs} ms`} />
-        <SettingsValue label="启动稳定窗口" value={`${settings.startStableWindowMs} ms`} />
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-12">
+          <SettingsValue className="col-span-2 lg:col-span-3" label="用户数据根目录" value={settings.userDataRoot || '-'} />
+          <SettingsValue className="lg:col-span-1" label="恢复历史标签" value={settings.restoreLastSession ? '开启' : '关闭'} />
+          <SettingsValue className="lg:col-span-1" label="轻启动模式" value={settings.lightStartEnabled ? '开启' : '关闭'} />
+          <SettingsValue className="lg:col-span-2" label="启动就绪超时" value={`${settings.startReadyTimeoutMs} ms`} />
+          <SettingsValue className="lg:col-span-2" label="启动稳定窗口" value={`${settings.startStableWindowMs} ms`} />
+          <SettingsList className="col-span-2 lg:col-span-3" label="默认启动页面" values={settings.defaultStartUrls} compact />
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          <SettingsList label="默认指纹参数" values={settings.defaultFingerprintArgs} />
+          <SettingsList label="默认启动参数" values={settings.defaultLaunchArgs} />
+        </div>
       </div>
     </Card>
   )
 }
 
-function SettingsValue({ label, value }: { label: string; value: string }) {
+function SettingsValue({ label, value, className = '' }: { label: string; value: string; className?: string }) {
   return (
-    <div>
+    <div className={className}>
       <p className="text-xs text-[var(--color-text-muted)] mb-1">{label}</p>
       <div className={`${settingsValueClass} break-all`}>
         {value}
@@ -47,12 +53,12 @@ function SettingsValue({ label, value }: { label: string; value: string }) {
   )
 }
 
-function SettingsList({ label, values }: { label: string; values: string[] }) {
+function SettingsList({ label, values, className = '', compact = false }: { label: string; values: string[]; className?: string; compact?: boolean }) {
   return (
-    <div>
+    <div className={className}>
       <p className="text-xs text-[var(--color-text-muted)] mb-1">{label}</p>
       {values.length > 0 ? (
-        <pre className={settingsValueClass}>
+        <pre className={compact ? settingsCompactListClass : settingsListClass}>
           {values.join('\n')}
         </pre>
       ) : (

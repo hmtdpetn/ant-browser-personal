@@ -30,18 +30,26 @@ func resolveConfiguredStartTargets(startURLs []string, defaultStartURLs []string
 	return normalizeNonEmptyStrings(defaultStartURLs)
 }
 
-func buildBrowserLaunchTargets(startURLs []string, defaultStartURLs []string, skipDefaultStartURLs bool, restoreLastSession bool, lightStartEnabled bool) ([]string, []string) {
+func buildBrowserLaunchTargets(startURLs []string, defaultStartURLs []string, skipDefaultStartURLs bool, restoreLastSession bool, lightStartEnabled bool) ([]string, []string, bool) {
 	configuredTargets := resolveConfiguredStartTargets(startURLs, defaultStartURLs, skipDefaultStartURLs)
+	if restoreLastSession && len(configuredTargets) > 0 {
+		return nil, configuredTargets, true
+	}
 	if lightStartEnabled && len(configuredTargets) > 0 {
-		return []string{"about:blank"}, configuredTargets
+		return []string{"about:blank"}, configuredTargets, false
 	}
 	if len(configuredTargets) > 0 {
-		return configuredTargets, nil
+		return configuredTargets, nil, false
 	}
 	if !restoreLastSession {
-		return []string{"about:blank"}, nil
+		return []string{"about:blank"}, nil, false
 	}
-	return nil, nil
+	return nil, nil, false
+}
+
+type deferredStartTargetsPlan struct {
+	targets []string
+	newTabs bool
 }
 
 func deferredStartTargetsWarning(targets []string, err error) string {
@@ -52,7 +60,7 @@ func deferredStartTargetsWarning(targets []string, err error) string {
 	return fmt.Sprintf("浏览器已启动，但 %d 个启动页未能自动打开：%v。可稍后手动打开。", len(normalized), err)
 }
 
-func (a *App) storeDeferredStartTargets(profileId string, targets []string) {
+func (a *App) storeDeferredStartTargets(profileId string, targets []string, newTabs bool) {
 	if a == nil {
 		return
 	}
@@ -65,20 +73,21 @@ func (a *App) storeDeferredStartTargets(profileId string, targets []string) {
 		delete(a.deferredStartTargets, profileId)
 		return
 	}
-	a.deferredStartTargets[profileId] = append([]string{}, normalized...)
+	a.deferredStartTargets[profileId] = deferredStartTargetsPlan{targets: append([]string{}, normalized...), newTabs: newTabs}
 }
 
-func (a *App) consumeDeferredStartTargets(profileId string) []string {
+func (a *App) consumeDeferredStartTargets(profileId string) deferredStartTargetsPlan {
 	if a == nil {
-		return nil
+		return deferredStartTargetsPlan{}
 	}
 
 	a.deferredStartTargetsMu.Lock()
 	defer a.deferredStartTargetsMu.Unlock()
 
-	targets := append([]string{}, a.deferredStartTargets[profileId]...)
+	plan := a.deferredStartTargets[profileId]
+	plan.targets = append([]string{}, plan.targets...)
 	delete(a.deferredStartTargets, profileId)
-	return targets
+	return plan
 }
 
 func (a *App) clearDeferredStartTargets(profileId string) {
@@ -160,6 +169,23 @@ func openBrowserStartTargets(debugPort int, targets []string) error {
 	return nil
 }
 
+func openBrowserStartTargetsInNewTabs(debugPort int, targets []string) error {
+	normalized := normalizeNonEmptyStrings(targets)
+	for _, url := range normalized {
+		if err := createBrowserStartTarget(debugPort, url); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func openDeferredStartTargets(debugPort int, plan deferredStartTargetsPlan) error {
+	if plan.newTabs {
+		return openBrowserStartTargetsInNewTabs(debugPort, plan.targets)
+	}
+	return openBrowserStartTargets(debugPort, plan.targets)
+}
+
 func (a *App) setProfileRuntimeWarning(profileId string, debugPort int, warning string) (*BrowserProfile, bool) {
 	if a == nil || a.browserMgr == nil {
 		return nil, false
@@ -182,18 +208,18 @@ func (a *App) setProfileRuntimeWarning(profileId string, debugPort int, warning 
 }
 
 func (a *App) finalizeDeferredStartTargets(profileId string, debugPort int) (*BrowserProfile, bool) {
-	targets := a.consumeDeferredStartTargets(profileId)
-	if len(targets) == 0 {
+	plan := a.consumeDeferredStartTargets(profileId)
+	if len(plan.targets) == 0 {
 		return nil, false
 	}
 
-	if err := openBrowserStartTargets(debugPort, targets); err != nil {
-		warning := deferredStartTargetsWarning(targets, err)
+	if err := openDeferredStartTargets(debugPort, plan); err != nil {
+		warning := deferredStartTargetsWarning(plan.targets, err)
 		snapshot, changed := a.setProfileRuntimeWarning(profileId, debugPort, warning)
 		logger.New("Browser").Warn("浏览器已就绪，但启动页延后打开失败",
 			logger.F("profile_id", profileId),
 			logger.F("debug_port", debugPort),
-			logger.F("target_count", len(targets)),
+			logger.F("target_count", len(plan.targets)),
 			logger.F("error", err.Error()),
 			logger.F("warning", warning),
 		)

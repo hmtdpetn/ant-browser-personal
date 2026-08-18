@@ -107,8 +107,22 @@ func browserRestoreLastSession(cfg *config.Config) bool {
 	return cfg.Browser.RestoreLastSession
 }
 
+func profileRestoreLastSession(profile *BrowserProfile, cfg *config.Config) bool {
+	if profile == nil {
+		return browserRestoreLastSession(cfg)
+	}
+	switch browser.NormalizeRestoreLastSessionMode(profile.RestoreLastSession) {
+	case browser.RestoreLastSessionEnabled:
+		return true
+	case browser.RestoreLastSessionDisabled:
+		return false
+	default:
+		return browserRestoreLastSession(cfg)
+	}
+}
+
 func appendLaunchTargets(args []string, startURLs []string, defaultStartURLs []string, skipDefaultStartURLs bool, restoreLastSession bool) []string {
-	launchTargets, _ := buildBrowserLaunchTargets(startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession, false)
+	launchTargets, _, _ := buildBrowserLaunchTargets(startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession, false)
 	return browser.BuildLaunchArgs(args, launchTargets)
 }
 

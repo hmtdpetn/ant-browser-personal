@@ -23,6 +23,7 @@ export type DualLaunchCodes = {
 export type AutomationCardPresentation = {
   key: string;
   title: string;
+  versionLabel: string;
   scriptId?: string;
   scriptType: AutomationScriptType;
   modeLabel: string;
@@ -58,6 +59,34 @@ function getAutomationCardRailClass(seed: string): string {
 
 function normalizeText(value?: string): string {
   return String(value || "").trim();
+}
+
+function formatMinuteTimestamp(value?: string): string {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return "";
+  }
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
+function resolveScriptVersionLabel(script: AutomationScriptRecord): string {
+  const versionSource =
+    normalizeText(script.source.importedAt) ||
+    normalizeText(script.updatedAt) ||
+    normalizeText(script.createdAt);
+  const formatted = formatMinuteTimestamp(versionSource);
+  return formatted ? `V ${formatted}` : "V -";
 }
 
 function normalizeCode(value?: string): string {
@@ -342,6 +371,7 @@ export function buildAutomationCardPresentation(options: {
   return {
     key: script.id,
     title: script.name,
+    versionLabel: resolveScriptVersionLabel(script),
     scriptId: script.id,
     scriptType: script.type,
     modeLabel: getAutomationModeLabel(script.type),
@@ -375,6 +405,7 @@ export function buildDualInstanceFallbackPresentation(options: {
   return {
     key: `${DUAL_INSTANCE_SCRIPT_ID}-fallback`,
     title: "双实例启动与 Runtime 切换",
+    versionLabel: "V -",
     scriptType: "launch-api",
     modeLabel: "接口模式",
     description: "启动双实例并切换 Runtime",

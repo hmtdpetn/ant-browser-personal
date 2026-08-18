@@ -138,6 +138,8 @@ export function BrowserGetCookies(arg1:string):Promise<Array<backend.CookieInfo>
 
 export function BrowserInstanceGetTabs(arg1:string):Promise<Array<browser.Tab>>;
 
+export function BrowserInstanceOpenFingerprintCheck(arg1:string):Promise<browser.Profile>;
+
 export function BrowserInstanceOpenUrl(arg1:string,arg2:string):Promise<boolean>;
 
 export function BrowserInstanceRestart(arg1:string):Promise<browser.Profile>;
@@ -171,6 +173,10 @@ export function BrowserProfileDelete(arg1:string):Promise<void>;
 export function BrowserProfileExtensionGet(arg1:string):Promise<browser.ProfileExtensionSettings>;
 
 export function BrowserProfileExtensionSave(arg1:string,arg2:Array<string>,arg3:boolean):Promise<browser.ProfileExtensionSettings>;
+
+export function BrowserProfileFingerprintCheck(arg1:string):Promise<backend.BrowserFingerprintCheckResult>;
+
+export function BrowserProfileFingerprintMatrix(arg1:string,arg2:string,arg3:Array<string>):Promise<backend.BrowserFingerprintCapabilityReport>;
 
 export function BrowserProfileGetCode(arg1:string):Promise<string>;
 
@@ -306,6 +312,8 @@ export function OpenProjectRoot():Promise<void>;
 
 export function OpenUserDataDir(arg1:string):Promise<void>;
 
+export function OpenUserDataRoot():Promise<void>;
+
 export function QuitAppOnly():Promise<void>;
 
 export function ReloadConfig():Promise<void>;
@@ -319,6 +327,8 @@ export function SaveAutomationSettings(arg1:boolean,arg2:boolean):Promise<Record
 export function SaveBrowserProxies(arg1:Array<config.BrowserProxy>):Promise<void>;
 
 export function SaveBrowserSettings(arg1:browser.Settings):Promise<void>;
+
+export function SaveLaunchServerSettings(arg1:number):Promise<Record<string, any>>;
 
 export function SaveProxyCheckSettings(arg1:config.ProxyCheckConfig):Promise<void>;
 

@@ -28,6 +28,7 @@ func (m *Manager) Update(profileId string, input ProfileInput) (*Profile, error)
 	profile.ProfileName = input.ProfileName
 	profile.UserDataDir = input.UserDataDir
 	profile.CoreId = normalizeProfileCoreID(input.CoreId)
+	profile.RestoreLastSession = NormalizeRestoreLastSessionMode(input.RestoreLastSession)
 	profile.FingerprintArgs = input.FingerprintArgs
 	if resolvedProxy.HasSelectedProxy {
 		_ = BindProfileToProxy(profile, resolvedProxy.SelectedProxy, true)
@@ -38,6 +39,7 @@ func (m *Manager) Update(profileId string, input ProfileInput) (*Profile, error)
 		profile.ProxyConfig = resolvedProxy.ProxyConfig
 		_ = ClearProfileProxyBinding(profile)
 	}
+	profile.MemoryLimitMB = normalizeMemoryLimitMB(input.MemoryLimitMB)
 	if resolvedProxy.UsedConfigFallback {
 		log.Warn("代理ID未命中，已改为使用输入的代理配置",
 			logger.F("profile_id", profileId),

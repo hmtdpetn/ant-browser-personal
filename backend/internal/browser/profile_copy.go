@@ -19,11 +19,14 @@ const (
 	copyAutomationTargetLocale   = "locale"
 	copyAutomationTargetScreen   = "screen"
 	copyAutomationTargetHardware = "hardware"
-	copyAutomationTargetRender   = "render"
-	copyAutomationTargetFonts    = "fonts"
 	copyAutomationTargetNetwork  = "network"
-	copyAutomationTargetDevices  = "devices"
 )
+
+var legacyCopyAutomationTargetAliases = map[string]string{
+	"render":  copyAutomationTargetSeed,
+	"fonts":   copyAutomationTargetSeed,
+	"devices": copyAutomationTargetSeed,
+}
 
 var profileCopyNameSuffixPattern = regexp.MustCompile(`[[:space:]]*(?:\([[:space:]]*副本[[:space:]]*\)|（副本）)[[:space:]]*(?:[0-9]{12})?$`)
 
@@ -84,6 +87,7 @@ func (m *Manager) copyProfile(profileId string, newName string, fingerprintResol
 		ProfileName:        profileName,
 		UserDataDir:        newId,
 		CoreId:             normalizeProfileCoreID(src.CoreId),
+		RestoreLastSession: NormalizeRestoreLastSessionMode(src.RestoreLastSession),
 		FingerprintArgs:    fingerprintResolver(src),
 		ProxyId:            src.ProxyId,
 		ProxyConfig:        src.ProxyConfig,
@@ -91,6 +95,7 @@ func (m *Manager) copyProfile(profileId string, newName string, fingerprintResol
 		ProxyBindSourceURL: src.ProxyBindSourceURL,
 		ProxyBindName:      src.ProxyBindName,
 		ProxyBindUpdatedAt: src.ProxyBindUpdatedAt,
+		MemoryLimitMB:      normalizeMemoryLimitMB(src.MemoryLimitMB),
 		LaunchArgs:         append([]string{}, src.LaunchArgs...),
 		Tags:               append([]string{}, src.Tags...),
 		Keywords:           append([]string{}, src.Keywords...),
@@ -165,6 +170,9 @@ func normalizeCopyAutomationTargets(targets []string) ([]string, error) {
 		value := strings.ToLower(strings.TrimSpace(target))
 		if value == "" {
 			continue
+		}
+		if alias, ok := legacyCopyAutomationTargetAliases[value]; ok {
+			value = alias
 		}
 		if _, ok := copyAutomationTargetArgPrefixes()[value]; !ok {
 			unknown = append(unknown, value)
@@ -320,36 +328,25 @@ func copyAutomationTargetArgPrefixes() map[string][]string {
 		},
 		copyAutomationTargetIdentity: {
 			"--fingerprint-brand",
+			"--fingerprint-brand-version",
 			"--fingerprint-platform",
+			"--fingerprint-platform-version",
 		},
 		copyAutomationTargetLocale: {
 			"--lang",
+			"--accept-lang",
 			"--timezone",
 		},
 		copyAutomationTargetScreen: {
 			"--window-size",
-			"--fingerprint-color-depth",
 		},
 		copyAutomationTargetHardware: {
 			"--fingerprint-hardware-concurrency",
-			"--fingerprint-device-memory",
-		},
-		copyAutomationTargetRender: {
-			"--fingerprint-canvas-noise",
-			"--fingerprint-webgl-vendor",
-			"--fingerprint-webgl-renderer",
-			"--fingerprint-audio-noise",
-		},
-		copyAutomationTargetFonts: {
-			"--fingerprint-fonts",
 		},
 		copyAutomationTargetNetwork: {
 			"--webrtc-ip-handling-policy",
-			"--fingerprint-do-not-track",
-		},
-		copyAutomationTargetDevices: {
-			"--fingerprint-media-devices",
-			"--fingerprint-touch-points",
+			"--disable-non-proxied-udp",
+			"--disable-spoofing",
 		},
 	}
 }

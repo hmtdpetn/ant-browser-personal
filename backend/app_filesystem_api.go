@@ -46,6 +46,37 @@ func (a *App) OpenUserDataDir(userDataDir string) error {
 	return nil
 }
 
+// OpenUserDataRoot 在资源管理器中打开浏览器用户数据根目录。
+func (a *App) OpenUserDataRoot() error {
+	log := logger.New("Browser")
+
+	userDataRoot := "data"
+	if a.config != nil && strings.TrimSpace(a.config.Browser.UserDataRoot) != "" {
+		userDataRoot = strings.TrimSpace(a.config.Browser.UserDataRoot)
+	}
+	rootPath := a.resolveAppPath(userDataRoot)
+	if _, err := os.Stat(rootPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(rootPath, 0755); err != nil {
+			log.Error("创建用户数据根目录失败", logger.F("path", rootPath), logger.F("error", err))
+			return fmt.Errorf("创建目录失败: %v", err)
+		}
+	}
+
+	absPath, err := filepath.Abs(rootPath)
+	if err != nil {
+		log.Error("获取用户数据根目录绝对路径失败", logger.F("path", rootPath), logger.F("error", err))
+		return err
+	}
+
+	if err := openPathInFileManager(absPath); err != nil {
+		log.Error("打开用户数据根目录失败", logger.F("path", absPath), logger.F("error", err))
+		return err
+	}
+
+	log.Info("已打开用户数据根目录", logger.F("path", absPath))
+	return nil
+}
+
 // OpenCorePath 在资源管理器中打开内核路径
 func (a *App) OpenCorePath(corePath string) error {
 	log := logger.New("Browser")

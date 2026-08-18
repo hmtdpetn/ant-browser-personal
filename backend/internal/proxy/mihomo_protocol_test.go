@@ -52,6 +52,25 @@ func TestMieruClashNodeBuildsMihomoNode(t *testing.T) {
 	}
 }
 
+func TestHTTPSStandardProxyBuildsMihomoHTTPNodeWithTLS(t *testing.T) {
+	node, err := buildMihomoNode("https://user:pass@proxy.example.com:8443")
+	if err != nil {
+		t.Fatalf("buildMihomoNode returned error: %v", err)
+	}
+	if node["type"] != "http" {
+		t.Fatalf("type = %v, want http", node["type"])
+	}
+	if node["server"] != "proxy.example.com" || node["port"] != 8443 {
+		t.Fatalf("node endpoint = %+v, want proxy.example.com:8443", node)
+	}
+	if node["username"] != "user" || node["password"] != "pass" {
+		t.Fatalf("auth = %+v, want user/pass", node)
+	}
+	if node["tls"] != true {
+		t.Fatalf("tls = %v, want true", node["tls"])
+	}
+}
+
 func TestMieruSpeedTestRequiresMihomoConnector(t *testing.T) {
 	proxyID := "mieru-proxy"
 	result := SpeedTestWithConnector(

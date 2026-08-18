@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -146,13 +148,17 @@ func lightHTTPDelayTestWithConnector(
 	}
 
 	if lastErr != nil {
+		errorMessage := lastErr.Error()
+		if runtimeError := speedTestRuntimeError(engine, src, proxies, proxyId, xrayMgr); runtimeError != "" {
+			errorMessage = runtimeError
+		}
 		log.Warn("代理测速失败",
 			logger.F("proxy_id", proxyId),
 			logger.F("engine", engine),
 			logger.F("latency_ms", lastLatency),
-			logger.F("error", lastErr.Error()),
+			logger.F("error", errorMessage),
 		)
-		return TestResult{ProxyId: proxyId, Ok: false, LatencyMs: lastLatency, Engine: engine, Error: lastErr.Error()}
+		return TestResult{ProxyId: proxyId, Ok: false, LatencyMs: lastLatency, Engine: engine, Error: errorMessage}
 	}
 	log.Warn("代理测速失败", logger.F("proxy_id", proxyId), logger.F("engine", engine), logger.F("error", "测速失败"))
 	return TestResult{ProxyId: proxyId, Ok: false, LatencyMs: lastLatency, Engine: engine, Error: "测速失败"}
@@ -232,6 +238,45 @@ func speedTestProbeEngine(src string, proxies []config.BrowserProxy, proxyId str
 		return "native"
 	}
 	return resolution.Kernel
+}
+
+func speedTestRuntimeError(engine string, src string, proxies []config.BrowserProxy, proxyId string, xrayMgr *XrayManager) string {
+	if engine != ProxyKernelXray || xrayMgr == nil {
+		return ""
+	}
+	dnsServers := ""
+	if proxyId != "" {
+		for _, item := range proxies {
+			if strings.EqualFold(item.ProxyId, proxyId) {
+				dnsServers = item.DnsServers
+				break
+			}
+		}
+	}
+	key := computeNodeKey(normalizeNodeScheme(src) + "\x00" + dnsServers)
+	return latestXrayErrorSummary(filepath.Join(xrayMgr.resolveWorkdir(key), "xray-error.log"))
+}
+
+func latestXrayErrorSummary(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" || !strings.Contains(line, "[Error]") {
+			continue
+		}
+		if idx := strings.Index(line, "[Error]"); idx >= 0 {
+			line = strings.TrimSpace(line[idx+len("[Error]"):])
+		}
+		if len([]rune(line)) > 240 {
+			line = string([]rune(line)[:240]) + "..."
+		}
+		return "xray 转发失败: " + line
+	}
+	return ""
 }
 
 func doSpeedTestRequest(client *http.Client, testURL string) (int64, int, error) {

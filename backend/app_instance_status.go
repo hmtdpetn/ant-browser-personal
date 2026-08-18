@@ -33,6 +33,7 @@ func (a *App) BrowserInstanceStatus(profileId string) (*BrowserProfile, error) {
 }
 
 func (a *App) BrowserInstanceOpenUrl(profileId string, targetUrl string) (bool, error) {
+	profileId = strings.TrimSpace(profileId)
 	normalizedTargetURL := strings.TrimSpace(targetUrl)
 	if normalizedTargetURL == "" {
 		return false, fmt.Errorf("打开地址失败：目标地址不能为空")
@@ -83,6 +84,8 @@ func (a *App) BrowserInstanceOpenUrl(profileId string, targetUrl string) (bool, 
 
 	snapshot := copyBrowserProfileSnapshot(profile)
 	a.browserMgr.Mutex.Unlock()
+	fingerprintExpectedArgs := a.fingerprintCheckExpectedArgsFromProfile(snapshot)
+	normalizedTargetURL = a.resolveFingerprintCheckStartURLForExpectedArgsAndProfile(snapshot.ProfileId, fingerprintExpectedArgs, snapshot, normalizedTargetURL)
 
 	if snapshot.DebugReady && snapshot.DebugPort > 0 {
 		if err := createBrowserStartTarget(snapshot.DebugPort, normalizedTargetURL); err == nil {

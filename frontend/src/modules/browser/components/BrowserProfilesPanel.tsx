@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { Copy, Download, Key, Loader2, MoreHorizontal, Play, Puzzle, Repeat2, RotateCcw, Settings, Square, Trash2, Wifi } from 'lucide-react'
+import { Copy, Download, FolderOpen, Key, Loader2, MoreHorizontal, Play, Puzzle, Repeat2, RotateCcw, Settings, Square, Trash2, Wifi } from 'lucide-react'
 
 import { Badge, Button, Card, Table } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
@@ -39,6 +39,7 @@ interface BrowserProfilesPanelProps {
   onRestart: (profileId: string) => void
   onOpenKeywords: (profile: BrowserProfile) => void
   onOpenExtensions: (profile: BrowserProfile) => void
+  onOpenDataDir: (profile: BrowserProfile) => void
   onExport: (profile: BrowserProfile) => void
   onOpenCopy: (profile: BrowserProfile) => void
   onOpenProxyPicker: (profile: BrowserProfile) => void
@@ -152,6 +153,7 @@ function ProfileMoreActions({
   onRestart,
   onOpenKeywords,
   onOpenExtensions,
+  onOpenDataDir,
   onExport,
 }: {
   open: boolean
@@ -161,6 +163,7 @@ function ProfileMoreActions({
   onRestart: () => void
   onOpenKeywords: () => void
   onOpenExtensions: () => void
+  onOpenDataDir: () => void
   onExport: () => void
 }) {
   const triggerRef = useRef<HTMLDivElement>(null)
@@ -173,7 +176,7 @@ function ProfileMoreActions({
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
       const menuWidth = 128
-      const menuHeight = 168
+      const menuHeight = 208
       const gap = 8
       const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8))
       const belowTop = rect.bottom + gap
@@ -252,6 +255,14 @@ function ProfileMoreActions({
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
+            onClick={() => runAndClose(onOpenDataDir)}
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            数据目录
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
             onClick={() => runAndClose(onExport)}
           >
             <Download className="w-3.5 h-3.5" />
@@ -305,7 +316,7 @@ function BrowserProfileCard({
 }) {
   return (
     <div
-      className={`flex flex-col border rounded-xl bg-[var(--color-bg-surface)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition-all duration-200 h-[320px] overflow-hidden
+      className={`relative flex flex-col border rounded-xl bg-[var(--color-bg-surface)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition-all duration-200 h-[320px] overflow-visible
         ${isSelected ? 'border-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/20' : 'border-[var(--color-border-default)] hover:border-[var(--color-accent)]'}
       `}
     >
@@ -411,6 +422,7 @@ export function BrowserProfilesPanel({
   onRestart,
   onOpenKeywords,
   onOpenExtensions,
+  onOpenDataDir,
   onExport,
   onOpenCopy,
   onOpenProxyPicker,
@@ -467,8 +479,9 @@ export function BrowserProfilesPanel({
             {value}
           </Link>
           {record.tags && record.tags.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {record.tags.map(tag => <Badge variant="default" key={tag}>{tag}</Badge>)}
+            <div className="flex shrink-0 gap-1 overflow-hidden">
+              {record.tags.slice(0, 2).map(tag => <Badge variant="default" key={tag}>{tag}</Badge>)}
+              {record.tags.length > 2 && <Badge variant="default">+{record.tags.length - 2}</Badge>}
             </div>
           )}
         </div>
@@ -563,6 +576,7 @@ export function BrowserProfilesPanel({
               onRestart={() => onRestart(record.profileId)}
               onOpenKeywords={() => onOpenKeywords(record)}
               onOpenExtensions={() => onOpenExtensions(record)}
+              onOpenDataDir={() => onOpenDataDir(record)}
               onExport={() => onExport(record)}
             />
             <Button size="sm" variant="ghost" onClick={() => onDelete(record.profileId)} title="删除" disabled={isBusy}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>

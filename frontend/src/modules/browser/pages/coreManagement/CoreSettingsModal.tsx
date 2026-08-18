@@ -66,11 +66,10 @@ export function CoreSettingsModal({ open, form, saving, setForm, onClose, onSave
             />
           </div>
         </FormItem>
-        <FormItem label="恢复上次关闭的标签页" hint="关闭后只打开默认启动页或空白页">
+        <FormItem label="默认恢复历史标签" hint="实例选择跟随内核时使用；不影响启动页和启动书签。实例未覆盖时，下次启动恢复之前的标签页和窗口。">
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-default)] px-3 py-2">
             <div>
-              <p className="text-sm text-[var(--color-text-primary)]">允许恢复旧 tab</p>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">关闭后，下次启动会继续恢复之前的标签页和窗口。</p>
+              <p className="text-sm text-[var(--color-text-primary)]">内核默认</p>
             </div>
             <Switch
               checked={form.restoreLastSession}
@@ -78,8 +77,8 @@ export function CoreSettingsModal({ open, form, saving, setForm, onClose, onSave
             />
           </div>
         </FormItem>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormItem label="启动就绪超时（毫秒）" hint="默认 3000，慢机器可调到 5000-10000">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <FormItem label="启动就绪超时（毫秒）">
             <Input
               type="number"
               min={1000}
@@ -89,7 +88,7 @@ export function CoreSettingsModal({ open, form, saving, setForm, onClose, onSave
               placeholder="3000"
             />
           </FormItem>
-          <FormItem label="启动稳定窗口（毫秒）" hint="建议 1200-3000">
+          <FormItem label="启动稳定窗口（毫秒）">
             <Input
               type="number"
               min={0}

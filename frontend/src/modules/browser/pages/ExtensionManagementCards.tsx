@@ -1,5 +1,5 @@
 import { Download, ExternalLink, FolderOpen, History, Power, Puzzle, RefreshCw, RotateCw, Search, Settings, Trash2, Users } from 'lucide-react'
-import { Button, Card, Input } from '../../../shared/components'
+import { Badge, Button, Card, Input } from '../../../shared/components'
 import type { BrowserExtension, BrowserExtensionLookupResult, BrowserProxy } from '../types'
 import { extensionStoreURL, formatExtensionSource, formatExtensionTime, getExtensionManifestMeta, getProxySpeedState } from './extensionManagementUtils'
 
@@ -186,6 +186,7 @@ export function ExtensionInstallCard({
 export interface InstalledExtensionsListProps {
   items: BrowserExtension[]
   busyId: string
+  busyAction: 'toggle' | 'delete' | ''
   updatingId: string
   onRestrictProfiles: (item: BrowserExtension) => void
   onUpdate: (item: BrowserExtension) => void
@@ -193,7 +194,7 @@ export interface InstalledExtensionsListProps {
   onDelete: (item: BrowserExtension) => void
 }
 
-export function InstalledExtensionsList({ items, busyId, updatingId, onRestrictProfiles, onUpdate, onToggle, onDelete }: InstalledExtensionsListProps) {
+export function InstalledExtensionsList({ items, busyId, busyAction, updatingId, onRestrictProfiles, onUpdate, onToggle, onDelete }: InstalledExtensionsListProps) {
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between">
@@ -205,6 +206,7 @@ export function InstalledExtensionsList({ items, busyId, updatingId, onRestrictP
             key={item.extensionId}
             item={item}
             busy={busyId === item.extensionId}
+            busyAction={busyId === item.extensionId ? busyAction : ''}
             updating={updatingId === item.extensionId}
             onRestrictProfiles={onRestrictProfiles}
             onUpdate={onUpdate}
@@ -226,6 +228,7 @@ export function InstalledExtensionsList({ items, busyId, updatingId, onRestrictP
 export interface InstalledExtensionCardProps {
   item: BrowserExtension
   busy: boolean
+  busyAction: 'toggle' | 'delete' | ''
   updating: boolean
   onRestrictProfiles: (item: BrowserExtension) => void
   onUpdate: (item: BrowserExtension) => void
@@ -233,9 +236,10 @@ export interface InstalledExtensionCardProps {
   onDelete: (item: BrowserExtension) => void
 }
 
-export function InstalledExtensionCard({ item, busy, updating, onRestrictProfiles, onUpdate, onToggle, onDelete }: InstalledExtensionCardProps) {
+export function InstalledExtensionCard({ item, busy, busyAction, updating, onRestrictProfiles, onUpdate, onToggle, onDelete }: InstalledExtensionCardProps) {
   const meta = getExtensionManifestMeta(item)
   const storeUrl = extensionStoreURL(item)
+  const actionButtonClass = 'min-w-[72px] will-change-transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
   return (
     <div className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-3 shadow-[var(--shadow-xs)]">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -250,7 +254,9 @@ export function InstalledExtensionCard({ item, busy, updating, onRestrictProfile
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-[var(--color-text-primary)]">{item.name || item.extensionId}</span>
-              <span className="rounded-full bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]">{item.enabled ? '已启用' : '已停用'}</span>
+              <Badge variant={item.enabled ? 'success' : 'error'} size="sm" dot>
+                {item.enabled ? '已启用' : '已停用'}
+              </Badge>
               {item.version ? <span className="text-xs text-[var(--color-text-muted)]">v{item.version}</span> : null}
               {meta.manifestVersion ? <span className="text-xs text-[var(--color-text-muted)]">MV{meta.manifestVersion}</span> : null}
             </div>
@@ -273,25 +279,25 @@ export function InstalledExtensionCard({ item, busy, updating, onRestrictProfile
         </div>
         <div className="flex shrink-0 gap-2">
           {storeUrl ? (
-            <Button type="button" size="sm" variant="secondary" onClick={() => window.open(storeUrl, '_blank')}>
+            <Button type="button" size="sm" variant="secondary" onClick={() => window.open(storeUrl, '_blank')} className={actionButtonClass}>
               <ExternalLink className="h-4 w-4" />
               商店
             </Button>
           ) : null}
-          <Button type="button" size="sm" variant="secondary" onClick={() => onRestrictProfiles(item)}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onRestrictProfiles(item)} className="min-w-[96px] will-change-transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]">
             <Users className="h-4 w-4" />
             限制实例
           </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={() => onUpdate(item)} loading={updating}>
-            <RotateCw className="h-4 w-4" />
+          <Button type="button" size="sm" variant="secondary" onClick={() => onUpdate(item)} disabled={updating} className={actionButtonClass}>
+            <RotateCw className={`h-4 w-4 ${updating ? 'animate-spin' : ''}`} />
             更新
           </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={() => onToggle(item)} loading={busy}>
-            <Power className="h-4 w-4" />
+          <Button type="button" size="sm" variant="secondary" onClick={() => onToggle(item)} disabled={busy} className={actionButtonClass}>
+            <Power className={`h-4 w-4 ${busy && busyAction === 'toggle' ? 'animate-pulse' : ''}`} />
             {item.enabled ? '停用' : '启用'}
           </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={() => onDelete(item)} loading={busy}>
-            <Trash2 className="h-4 w-4" />
+          <Button type="button" size="sm" variant="secondary" onClick={() => onDelete(item)} disabled={busy} className={actionButtonClass}>
+            <Trash2 className={`h-4 w-4 ${busy && busyAction === 'delete' ? 'animate-pulse' : ''}`} />
             删除
           </Button>
         </div>
