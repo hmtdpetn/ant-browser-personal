@@ -33,6 +33,8 @@ type browserStartPlan struct {
 	effectiveProxy       string
 	acquiredProxyBridge  profileProxyBridgeRef
 	releaseProxyBridge   bool
+	preparedProxyGateway bool
+	releaseProxyGateway  bool
 	assignedDebugPort    int
 	startReadyTimeout    time.Duration
 	startStableWindow    time.Duration
@@ -67,6 +69,9 @@ func (plan *browserStartPlan) releaseBridgeIfNeeded(a *App) {
 	}
 	if plan.releaseProxyBridge {
 		a.releaseProxyBridgeRef(plan.acquiredProxyBridge)
+	}
+	if plan.releaseProxyGateway && plan.profile != nil {
+		a.stopProfileGateway(plan.profile.ProfileId)
 	}
 }
 
@@ -131,10 +136,11 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		return nil, err
 	}
 
-	effectiveProxy, acquiredProxyBridge, releaseProxyBridge, err := a.resolveBrowserStartProxy(input, profile)
+	gatewayStatus, err := a.prepareProfileProxyGateway(input, profile)
 	if err != nil {
 		return nil, err
 	}
+	effectiveProxy := gatewayStatus.ProxyURL
 
 	badgeLabel := a.browserMgr.ProfileBadgeLabel(profile)
 	badgeIconPath, badgeErr := browser.EnsureProfileBadgeIcon(userDataDir, profile.ProfileName, badgeLabel)
@@ -184,8 +190,8 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		deferredStartTargets: deferredStartTargets,
 		deferredStartNewTabs: deferredStartNewTabs,
 		effectiveProxy:       effectiveProxy,
-		acquiredProxyBridge:  acquiredProxyBridge,
-		releaseProxyBridge:   releaseProxyBridge,
+		preparedProxyGateway: true,
+		releaseProxyGateway:  true,
 		assignedDebugPort:    assignedDebugPort,
 		startReadyTimeout:    startReadyTimeout,
 		startStableWindow:    startStableWindow,

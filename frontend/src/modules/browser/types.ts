@@ -241,6 +241,41 @@ export interface BrowserProxy {
   lastIPHealthJson?: string
 }
 
+export type ProxyRoutingMode = 'proxy' | 'rule' | 'direct'
+export type ProxyRoutingAction = 'proxy' | 'direct' | 'block'
+export type ProxyRoutingMatchType = 'domain' | 'domain_suffix' | 'domain_keyword' | 'ip_cidr'
+
+export interface ProxyRoutingRule {
+  id: string
+  name: string
+  enabled: boolean
+  matchType: ProxyRoutingMatchType | string
+  pattern: string
+  action: ProxyRoutingAction | string
+}
+
+export interface ProxyRoutingConfig {
+  mode: ProxyRoutingMode | string
+  rules: ProxyRoutingRule[]
+}
+
+export interface ProxyGatewayStatus {
+  profileId: string
+  proxyUrl: string
+  currentRouteId: string
+  mode: ProxyRoutingMode | string
+  activeConnections: number
+  drainingConnections: number
+  browserPid?: number
+  browserDebugPort?: number
+}
+
+export interface BrowserProxySwitchResult {
+  profile: BrowserProfile | null
+  gateway: ProxyGatewayStatus
+  appliedLive: boolean
+}
+
 export interface BrowserProxyGroup {
   groupId: string
   groupName: string

@@ -4,6 +4,7 @@ export type StructuredApiSectionId =
   | 'api-profiles-launch'
   | 'api-runtime'
   | 'api-automation'
+  | 'api-proxy-gateway'
 
 export type StructuredApiDocId =
   | StructuredApiSectionId
@@ -27,6 +28,12 @@ export type StructuredApiDocId =
   | 'api-automation-script-detail'
   | 'api-automation-run-detail'
   | 'api-automation-runs-detail'
+  | 'api-automation-hook-detail'
+  | 'api-proxy-gateway-switch-detail'
+  | 'api-proxy-gateway-status-detail'
+  | 'api-proxy-gateway-status-selector-detail'
+  | 'api-proxy-gateway-routing-get-detail'
+  | 'api-proxy-gateway-routing-save-detail'
 
 export interface StructuredApiExampleContext {
   launchBaseUrl: string
