@@ -1,6 +1,6 @@
 # Ant Browser Personal Launch HTTP API
 
-适用版本：2.0.1 及后续兼容版本。
+适用版本：2.2.0 及后续兼容版本。
 
 本文档描述供本机脚本、自动化工具和内部服务调用的 Launch HTTP API。桌面界面使用的 Wails 绑定不是面向第三方的网络 API；第三方请只调用本文档中的 HTTP 路由，不要直接读写 SQLite 数据库。
 
@@ -185,6 +185,126 @@ curl -H "X-Ant-Api-Key: replace-with-a-long-random-secret" http://127.0.0.1:1987
 ```
 
 可在请求中额外传入 `selector`、`targetInput` 或 `params` 对象。脚本包的本地文件/ZIP 导入导出仍属于桌面端操作，因为它们需要用户选择本地文件；当前没有上传脚本包的 HTTP 接口。
+
+## 代理网关与热切换 API（2.2.0 新增）
+
+2.2.0 为每个运行中的实例启动独立的本地 SOCKS5 网关。浏览器连接的是网关地址，网关再根据当前路由选择远端代理、直连或阻断。切换代理只影响新建连接；旧连接默认自然排空，也可以使用 `force: true` 立即断开。代理拨号失败时网关不会回退到直连。
+
+### 按实例 ID 读取网关状态
+
+```http
+GET /api/proxy-gateway/status?profileId={profileId}
+```
+
+```bash
+curl "http://127.0.0.1:19876/api/proxy-gateway/status?profileId=550e8400-e29b-41d4-a716-446655440000" \
+  -H "X-Ant-Api-Key: <your-api-key>"
+```
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "profileId": "550e8400-e29b-41d4-a716-446655440000",
+  "gateway": {
+    "proxyUrl": "socks5://127.0.0.1:43127",
+    "currentRouteId": "proxy-us-new",
+    "mode": "proxy",
+    "activeConnections": 2,
+    "drainingConnections": 0,
+    "browserPid": 12340,
+    "browserDebugPort": 9333
+  }
+}
+```
+
+### 运行中热切换代理
+
+```http
+POST /api/proxy-gateway/switch
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "selector": { "profileId": "550e8400-e29b-41d4-a716-446655440000" },
+  "proxyId": "proxy-us-new",
+  "force": false
+}
+```
+
+`selector` 支持 `profileId`、`code`、`profileName`、标签、关键字和 `groupId`；运行态操作必须唯一命中一个实例。`proxyId` 无效时可以改用 `proxyConfig`，例如 `socks5://127.0.0.1:1080`。`force: true` 会立即关闭切换前建立的旧连接。
+
+成功响应会包含 `appliedLive`、`profileId` 和 `gateway`；实例未运行时 `appliedLive` 为 `false`，只保存下次启动使用的代理。
+
+常见错误码：
+
+| 状态码 | 含义 |
+| --- | --- |
+| `400` | selector、代理配置或请求体非法。 |
+| `404` | selector 未命中实例，或代理节点不存在且没有有效 proxyConfig。 |
+| `409` | selector 命中多个实例。 |
+| `502` | 代理出口或网关应用失败；原路由保持不变。 |
+| `503` | 代理网关控制能力未就绪。 |
+
+### 读取和保存分流规则
+
+读取当前配置：
+
+```http
+GET /api/proxy-gateway/routing?profileId={profileId}
+```
+
+保存并立即应用：
+
+```http
+PUT /api/proxy-gateway/routing
+Content-Type: application/json
+```
+
+```json
+{
+  "selector": { "profileId": "550e8400-e29b-41d4-a716-446655440000" },
+  "routing": {
+    "mode": "rule",
+    "rules": [
+      {
+        "id": "cn",
+        "name": "中国大陆直连",
+        "enabled": true,
+        "matchType": "domain_suffix",
+        "pattern": ".cn",
+        "action": "direct"
+      },
+      {
+        "id": "tracker",
+        "name": "阻断追踪",
+        "enabled": true,
+        "matchType": "domain_keyword",
+        "pattern": "tracker",
+        "action": "block"
+      }
+    ]
+  },
+  "force": false
+}
+```
+
+`mode` 可选 `proxy`（全部代理）、`rule`（按规则）或 `direct`（全部直连）。规则的 `action` 可选 `proxy`、`direct`、`block`；`matchType` 可选 `domain`、`domain_suffix`、`domain_keyword`、`ip_cidr`。规则按数组顺序从上到下匹配，第一条命中后停止；`mode=rule` 未命中时默认走代理。域名后缀的前导点可省略，`.cn` 与 `cn` 行为相同。
+
+常见错误码：
+
+| 状态码 | 含义 |
+| --- | --- |
+| `400` | 缺少 selector，或 mode、matchType、action、pattern、IP/CIDR 无效。 |
+| `404` | selector 未命中实例。 |
+| `502` | 运行中的网关应用新规则失败，持久化配置保持不变。 |
+| `503` | 代理网关控制能力未就绪。 |
+
+完整的结构化接口目录、字段表和可复制的 curl 示例，也可以在桌面端的“Launch API 文档”页面查看。
 
 ## 使用建议
 
