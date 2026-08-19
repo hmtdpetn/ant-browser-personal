@@ -22,6 +22,9 @@ func (s *LaunchServer) buildMux() *http.ServeMux {
 	mux.HandleFunc("/api/runtime/session", s.handleRuntimeSession)
 	mux.HandleFunc("/api/runtime/status", s.handleRuntimeStatus)
 	mux.HandleFunc("/api/runtime/stop", s.handleRuntimeStop)
+	mux.HandleFunc("/api/proxy-gateway/switch", s.handleProxyGateway)
+	mux.HandleFunc("/api/proxy-gateway/status", s.handleProxyGateway)
+	mux.HandleFunc("/api/proxy-gateway/routing", s.handleProxyGatewayRouting)
 	mux.HandleFunc("/api/launch", s.handleLaunchWithBody)
 	mux.HandleFunc("/api/launch/logs", s.handleLaunchLogs)
 	mux.HandleFunc("/api/launch/", s.handleLaunch)
@@ -40,6 +43,13 @@ func (s *LaunchServer) buildHandler(includeLocalhost bool) http.Handler {
 
 // handleHealth GET /api/health
 func (s *LaunchServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]interface{}{
+			"ok":    false,
+			"error": "method not allowed",
+		})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
 }
 

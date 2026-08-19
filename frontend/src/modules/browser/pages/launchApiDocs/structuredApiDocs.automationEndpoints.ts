@@ -192,4 +192,58 @@ export const AUTOMATION_API_ENDPOINT_DOCS: StructuredApiEndpointDoc[] = [
     ],
     notes: [],
   },
+  {
+    id: 'api-automation-hook-detail',
+    parentId: 'api-automation',
+    label: '公开脚本 Hook',
+    method: 'POST',
+    path: '/api/automation/hooks/{hookPath}',
+    purpose: '通过脚本自定义的公开路径执行自动化任务。',
+    description: '脚本作者可以为单个脚本启用公开 Hook，并指定路径、HTTP 方法、默认参数、变量和超时。调用方无需知道 scriptId，只需按脚本配置的 Hook 契约请求。',
+    fields: [
+      { name: 'hookPath', type: 'string', required: true, location: 'Path', description: '脚本公开 API 配置的路径。' },
+      { name: 'code', type: 'string', required: false, location: 'Body', description: '兼容写法：指定已有实例 launchCode；不能与 instance 同传。' },
+      { name: 'instance', type: 'object', required: false, location: 'Body', description: '实例策略，type 支持 script-default、existing、rotate、create。' },
+      { name: 'params', type: 'object', required: false, location: 'Body', description: '覆盖脚本默认参数；脚本可配置必填变量。' },
+      { name: 'timeoutMs', type: 'integer', required: false, location: 'Body', description: '本次执行超时；也可作为 Query 参数传入。' },
+    ],
+    requestExample: {
+      language: 'bash',
+      code: ({ launchBaseUrl, authHeader }) => `curl -X POST ${launchBaseUrl}/api/automation/hooks/news/query \\
+  -H "Content-Type: application/json" \\
+  -H "${authHeader}: <your-api-key>" \\
+  -d '{
+    "instance": {
+      "type": "existing",
+      "selector": { "code": "BUYER_001" }
+    },
+    "params": { "keyword": "OpenAI", "limit": 10 },
+    "timeoutMs": 120000
+  }'`,
+    },
+    responseExample: {
+      language: 'json',
+      code: () => `{
+  "ok": true,
+  "status": "success",
+  "summary": "已抓取 10 条新闻",
+  "message": "已抓取 10 条新闻",
+  "data": { "count": 10 },
+  "result": { "count": 10 }
+}`,
+    },
+    responseCodes: [
+      { code: '200', description: '脚本执行完成；业务失败也可能以 ok=false 的 200 返回。' },
+      { code: '400', description: '请求体、实例策略、变量或 timeoutMs 非法。' },
+      { code: '404', description: 'Hook 不存在或脚本没有启用公开 API。' },
+      { code: '405', description: '请求方法与脚本配置的方法不一致。' },
+      { code: '500', description: '脚本执行异常。' },
+      { code: '503', description: '自动化脚本能力未启用。' },
+    ],
+    notes: [
+      '真实 HTTP 方法由脚本 Public API 配置决定，示例使用 POST。',
+      'Hook 仍受 LaunchServer 的 localhost 限制和 API Key 认证保护。',
+      'code 与 instance 不能同时传；不传二者时沿用脚本默认实例策略。',
+    ],
+  },
 ]

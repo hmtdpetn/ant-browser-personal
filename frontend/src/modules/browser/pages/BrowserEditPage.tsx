@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronDown, ChevronUp, FolderOpen, HelpCircle, Layers, Plus, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronUp, FolderOpen, GitBranch, HelpCircle, Layers, Plus, ShieldCheck } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
 import type { BrowserCore, BrowserFingerprintCapabilityReport, BrowserFingerprintCapabilityRow, BrowserFingerprintCheckResult, BrowserProfileInput, BrowserProxy, BrowserGroup, ProxyLocationResolveResult } from '../types'
 import { browserProxyResolveLocation, checkBrowserProfileFingerprint, createBrowserProfile, createGroup, fetchAllTags, fetchBrowserCores, fetchBrowserProfileFingerprintMatrix, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openBrowserFingerprintCheck, openUserDataDir, updateBrowserProfile } from '../api'
@@ -9,6 +9,7 @@ import { applyLocaleToFingerprintArgs, validateFingerprintArgs, withAdaptiveDefa
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
+import { ProxyRoutingModal } from '../components/ProxyRoutingModal'
 
 const fallbackLowLaunchArgs = ['--disable-sync', '--no-first-run']
 const directProxyID = '__direct__'
@@ -262,6 +263,8 @@ export function BrowserEditPage() {
   const [allTags, setAllTags] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [proxyPickerOpen, setProxyPickerOpen] = useState(false)
+  const [proxyRoutingOpen, setProxyRoutingOpen] = useState(false)
+  const [profileRunning, setProfileRunning] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -292,6 +295,7 @@ export function BrowserEditPage() {
       setGroups(groupList)
 
       if (isCreate) {
+        setProfileRunning(false)
         const resolved = resolvePoolProxySelection('', '', proxyList)
         setFormData((prev) => ({
           ...prev,
@@ -306,6 +310,7 @@ export function BrowserEditPage() {
       const list = await fetchBrowserProfiles()
       const current = list.find(item => item.profileId === id)
       if (!current) return
+      setProfileRunning(current.running)
       const currentLaunchArgs = normalizeLaunchArgs(current.launchArgs)
       const normalizedCoreId = !current.coreId || current.coreId.toLowerCase() === 'default'
         ? ''
@@ -548,12 +553,12 @@ export function BrowserEditPage() {
             <Input value={formData.profileName} onChange={e => handleChange('profileName', e.target.value)} placeholder="请输入配置名称" />
           </FormItem>
           <FormItem label="用户数据目录（留空自动生成）">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Input
                 value={formData.userDataDir}
                 onChange={e => handleChange('userDataDir', e.target.value)}
                 placeholder="留空自动生成"
-                className="flex-1"
+                className="min-w-[220px] flex-1"
               />
               <Button variant="secondary" size="sm" onClick={handleOpenUserDataDir} title="在资源管理器中打开">
                 <FolderOpen className="w-4 h-4" />
@@ -671,6 +676,17 @@ export function BrowserEditPage() {
                 <Layers className="w-4 h-4" />
               </Button>
               <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setProxyRoutingOpen(true)}
+                disabled={isCreate}
+                title={isCreate ? '请先创建实例' : '代理分流规则'}
+                aria-label="代理分流规则"
+              >
+                <GitBranch className="h-4 w-4" />
+              </Button>
+              <Button
                 variant="secondary"
                 size="sm"
                 onClick={handleApplyProxyLocation}
@@ -701,7 +717,16 @@ export function BrowserEditPage() {
         onSelect={proxy => { handleChange('proxyId', proxy.proxyId); setLocationResult(null) }}
         onProxyListUpdated={handleProxyListUpdated}
         onProxyDeleted={handleProxyDeleted}
+        onOpenRouting={isCreate ? undefined : () => setProxyRoutingOpen(true)}
         onClose={() => setProxyPickerOpen(false)}
+      />
+
+      <ProxyRoutingModal
+        open={proxyRoutingOpen && !isCreate}
+        profileId={id || ''}
+        profileName={formData.profileName}
+        running={profileRunning}
+        onClose={() => setProxyRoutingOpen(false)}
       />
 
       <Card

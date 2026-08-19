@@ -13,6 +13,7 @@ import { DOC_CHANGELOG } from './contentChangelog'
 import {
   DOC_API_AUTOMATION,
   DOC_API_GROUPS,
+  DOC_API_PROXY_GATEWAY,
   DOC_API_PROFILES_LAUNCH,
   DOC_API_RUNTIME,
 } from './contentApi'
@@ -134,6 +135,12 @@ export const DOC_GROUPS: LaunchDocGroup[] = [
         label: '运行态与接管',
         summary: 'runtime session、活动实例和统一 CDP 入口。',
         content: DOC_API_RUNTIME,
+      },
+      {
+        id: 'api-proxy-gateway',
+        label: '代理网关与热切换',
+        summary: '运行中切换代理、连接排空、失败关闭和域名/IP 分流。',
+        content: DOC_API_PROXY_GATEWAY,
       },
       {
         id: 'api-automation',

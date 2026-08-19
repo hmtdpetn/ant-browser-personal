@@ -430,10 +430,15 @@ curl -H "X-Ant-Api-Key: <your-api-key>" http://127.0.0.1:19876/api/health
 | 运行态 | \`POST\` | \`/api/runtime/session\` |
 | 运行态 | \`POST\` | \`/api/runtime/status\` |
 | 运行态 | \`POST\` | \`/api/runtime/stop\` |
+| 代理网关 | \`POST\` | \`/api/proxy-gateway/switch\` |
+| 代理网关 | \`GET / POST\` | \`/api/proxy-gateway/status\` |
+| 代理网关 | \`GET\` | \`/api/proxy-gateway/routing\` |
+| 代理网关 | \`PUT\` | \`/api/proxy-gateway/routing\` |
 | 自动化脚本 | \`GET\` | \`/api/automation/scripts\` |
 | 自动化脚本 | \`GET\` | \`/api/automation/scripts/{scriptId}\` |
 | 自动化脚本 | \`POST\` | \`/api/automation/scripts/run\` |
 | 自动化脚本 | \`GET\` | \`/api/automation/scripts/runs\` |
+| 自动化 Hook | 配置决定 | \`/api/automation/hooks/{hookPath}\` |
 | 调用日志 | \`GET\` | \`/api/launch/logs\` |
 | CDP 统一入口 | \`GET\` | \`/json/version\` |
 | CDP 统一入口 | \`GET\` | \`/json/list\` |
@@ -461,4 +466,6 @@ curl -H "X-Ant-Api-Key: <your-api-key>" http://127.0.0.1:19876/api/health
 | 需要 ready 后再接管 | \`POST /api/runtime/session\` |
 | 只有 selector，想查状态 | \`POST /api/runtime/status\` |
 | 只有 selector，想停止 | \`POST /api/runtime/stop\` |
+| 运行中切换代理 | \`POST /api/proxy-gateway/switch\` |
+| 配置域名/IP 分流 | \`PUT /api/proxy-gateway/routing\` |
 `
