@@ -1,5 +1,7 @@
 ﻿# Ant Browser
 
+> 本仓库基于 [black-ant/Ant-Browser](https://github.com/black-ant/Ant-Browser) 二次开发。
+
 > 面向多账号隔离、代理绑定和本地环境管理的桌面浏览器工具（Windows / Linux / macOS unsigned）。
 
 [![Release](https://img.shields.io/github/v/release/black-ant/Ant-Browser?sort=semver)](https://github.com/black-ant/Ant-Browser/releases)
